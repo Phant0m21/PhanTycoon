@@ -57,22 +57,22 @@
     "pickaxes": {
         "Железная кирка": {
             "price": 15000,
-            "emoji": "<:ironpickaxe:1521827763022073916>",
+            "emoji": "<:ironpickaxe:1522995651095298129>",
             "category": "pickaxes"
         },
         "Золотая кирка": {
             "price": 75000,
-            "emoji": "<:goldenpickaxe:1521827761814110269>",
+            "emoji": "<:goldenpickaxe:1522995649828618292>",
             "category": "pickaxes"
         },
         "Алмазная кирка": {
             "price": 350000,
-            "emoji": "<:diamondpickaxe:1521827760647966800>",
+            "emoji": "<:diamondpickaxe:1522995648511868928>",
             "category": "pickaxes"
         },
         "Незеритовая кирка": {
             "price": 1500000,
-            "emoji": "<:netheritepickaxe:1521827759465431172>",
+            "emoji": "<:netheritepickaxe:1522995647073226843>",
             "category": "pickaxes"
         }
     },
