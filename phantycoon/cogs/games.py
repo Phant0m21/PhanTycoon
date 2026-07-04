@@ -1,0 +1,82 @@
+import os
+import sys
+import asyncio
+import random
+from datetime import datetime, timedelta, timezone
+
+import disnake
+from disnake.ext import commands
+
+from phantycoon.bot import bot
+from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
+from phantycoon.data import ORES, PICKAXES, UPGRADES
+from phantycoon.database import *
+from phantycoon.shop_data import load_shop, save_shop
+from phantycoon.state import active_buffs, collect_cooldowns
+
+# ==================== COINFLIP ====================
+
+@bot.slash_command(name="coinflip", description="Подбросить монетку (x2)")
+async def coinflip(
+    ctx: disnake.ApplicationCommandInteraction,
+    bet: int = commands.Param(gt=0, description="Сумма ставки"),
+    choice: str = commands.Param(choices=["Орёл", "Решка"], description="Ваш выбор")
+):
+    user_id = ctx.author.id
+    
+    user_data = get_user_data(user_id)
+    if user_data["wallet"] < bet:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description=f"Недостаточно денег в кошельке!",
+            color=EMBED_COLOR
+        )
+        await ctx.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    update_user_wallet(user_id, user_data["wallet"] - bet)
+    
+    result = random.choice(["Орёл", "Решка"])
+    
+    if result == choice:
+        win_amount = bet * 2
+        user_data = get_user_data(user_id)
+        update_user_wallet(user_id, user_data["wallet"] + win_amount)
+        update_stats(user_id, total_earned=win_amount, games_played=1)
+        
+        embed = disnake.Embed(
+            title="Монетка",
+            description=f"**Выпало: {result}**\n\n{ctx.author.mention} выиграл **{win_amount}** {CURRENCY} (x2)",
+            color=EMBED_COLOR
+        )
+    else:
+        inventory = get_user_inventory(user_id)
+        has_insurance = inventory.get("Страховка", 0) > 0
+        
+        if has_insurance:
+            refund = int(bet * 0.3)
+            # Получаем актуальный баланс
+            current_wallet = get_user_data(user_id)["wallet"]
+            update_user_wallet(user_id, current_wallet + refund)
+            
+            inventory["Страховка"] -= 1
+            if inventory["Страховка"] <= 0:
+                del inventory["Страховка"]
+            update_user_inventory(user_id, inventory)
+            
+            embed = disnake.Embed(
+                title="Монетка",
+                description=f"**Выпало: {result}**\n\n{ctx.author.mention} проиграл **{bet}** {CURRENCY}\n\n📋 Страховка вернула **{refund}** {CURRENCY}",
+                color=EMBED_COLOR
+            )
+        else:
+            embed = disnake.Embed(
+                title="Монетка",
+                description=f"**Выпало: {result}**\n\n{ctx.author.mention} проиграл **{bet}** {CURRENCY}",
+                color=EMBED_COLOR
+            )
+        
+        update_stats(user_id, total_spent=bet, games_played=1)
+    
+    embed.set_thumbnail(url=ctx.author.display_avatar.url)
+    await ctx.response.send_message(embed=embed)
