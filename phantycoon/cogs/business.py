@@ -15,15 +15,15 @@ from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
-# ==================== КОЛЛЕКТ ====================
+# ==================== COLLECT ====================
 
-@bot.slash_command(name="collect", description="Собрать доход с бизнесов (раз в 6 часов)")
+@bot.slash_command(name="collect", description="Collect business income (every 6 hours)")
 async def collect(ctx: disnake.ApplicationCommandInteraction):
     can, next_time = can_collect(ctx.author.id)
     if not can:
         embed = disnake.Embed(
-            title="Сбор недоступен",
-            description=f"Следующий сбор доступен <t:{int(next_time.timestamp())}:R>",
+            title="Collect is on cooldown",
+            description=f"Next collect is available <t:{int(next_time.timestamp())}:R>",
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -35,7 +35,7 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
     user_businesses = get_user_businesses(ctx.author.id)
     shop = load_shop()
     
-    # Получаем уровень апгрейда бизнесов
+    # Get business upgrade level
     user_data = get_user_data(ctx.author.id)
     business_level = user_data.get("business_optimization_level", 0)
     income_bonus = 0
@@ -52,12 +52,12 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
             base_income = shop["business"][business_name]["income"]
             bonus_amount = int(base_income * income_bonus / 100)
             total_income += base_income + bonus_amount
-            collected_businesses.append(f"{shop['business'][business_name]['emoji']} {business_name} +{base_income + bonus_amount} {CURRENCY} (+{bonus_amount} бонус)")
+            collected_businesses.append(f"{shop['business'][business_name]['emoji']} {business_name} +{base_income + bonus_amount} {CURRENCY} (+{bonus_amount} bonus)")
     
     if total_income == 0:
         embed = disnake.Embed(
-            title="Сбор дохода",
-            description="У вас нет бизнесов! Купите их в магазине /shop",
+            title="Income Collected",
+            description="You do not own any businesses yet. Buy one in /shop.",
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -70,17 +70,17 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
     update_stats(ctx.author.id, total_earned=total_income, collect_earned=total_income)
     
     embed = disnake.Embed(
-        title="Сбор дохода",
-        description=f"Вы собрали доход с бизнесов!\n\n" + "\n".join(collected_businesses),
+        title="Income Collected",
+        description=f"You collected income from your businesses!\n\n" + "\n".join(collected_businesses),
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Всего получено",
+        name="Total received",
         value=f"**{total_income}** {CURRENCY}",
         inline=False
     )
     embed.add_field(
-        name="Новый баланс",
+        name="New balance",
         value=f"{new_wallet} {CURRENCY}",
         inline=False
     )

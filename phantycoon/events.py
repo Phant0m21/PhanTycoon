@@ -15,13 +15,13 @@ from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_send
 
-# ==================== СОБЫТИЯ ====================
+# ==================== EVENTS ====================
 
 @bot.event
 async def on_ready():
-    print(f"Бот {bot.user} готов!")
-    print(f"Валюта: {CURRENCY}")
-    print(f"Запущен: {BOT_START_TIME.strftime('%d.%m.%Y %H:%M:%S')}")
+    print(f"Bot {bot.user} ready!")
+    print(f"Currency: {CURRENCY}")
+    print(f"Started: {BOT_START_TIME.strftime('%d.%m.%Y %H:%M:%S')}")
 
 
 @bot.listen("on_application_command")
@@ -31,10 +31,10 @@ async def auto_defer_application_commands(ctx: disnake.ApplicationCommandInterac
 
 @bot.event
 async def on_slash_command_error(ctx: disnake.ApplicationCommandInteraction, error: Exception):
-    print(f"Ошибка команды {getattr(ctx.application_command, 'qualified_name', 'unknown')}: {error!r}")
+    print(f"Command error {getattr(ctx.application_command, 'qualified_name', 'unknown')}: {error!r}")
     embed = disnake.Embed(
-        title="Ошибка",
-        description="Команда временно не смогла выполниться. Попробуйте ещё раз через пару секунд.",
+        title="Error",
+        description="The command could not finish right now. Try again in a few seconds.",
         color=EMBED_COLOR
     )
     await safe_send(ctx, embed=embed, ephemeral=True)

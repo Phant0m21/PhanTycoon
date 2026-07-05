@@ -4,27 +4,27 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# ==================== НАСТРОЙКИ ====================
+# ==================== SETTINGS ====================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Загрузка токена
+# Token loading
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 if not TOKEN:
-    raise ValueError("Токен не найден в .env файле!")
+    raise ValueError("DISCORD_TOKEN was not found in .env!")
 
-# ВАЛЮТА
+# CURRENCY
 CURRENCY = "$"
 WORK_MIN = 90
 WORK_MAX = 150
 
-# ID разработчика
+# Developer ID
 DEV_ID = 1520143480406409256
 
-# Цвет эмбеда (белый)
+# Embed color (white)
 EMBED_COLOR = 0xFFFFFF
 
-# Файлы
+# Files
 DB_FILE = BASE_DIR / "economy.db"
 SHOP_FILE = BASE_DIR / "shop.json"
 

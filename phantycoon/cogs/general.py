@@ -15,12 +15,12 @@ from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
-# ==================== КОМАНДЫ ====================
+# ==================== COMMANDS ====================
 
-@bot.slash_command(name="balance", description="Показать баланс")
+@bot.slash_command(name="balance", description="Show balance")
 async def balance(
     ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(default=None, description="Пользователь")
+    user: disnake.User = commands.Param(default=None, description="User")
 ):
     target = user or ctx.author
     user_data = get_user_data(target.id)
@@ -28,21 +28,21 @@ async def balance(
     total = user_data["wallet"] + user_data["bank"]
 
     embed = disnake.Embed(
-        title=f"Баланс пользователя - {target.name}",
+        title=f"Balance - {target.name}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Всего",
+        name="Total",
         value=f"```\n{total}\n```",
         inline=False
     )
     embed.add_field(
-        name="Кошелёк",
+        name="Wallet",
         value=f"```\n{user_data['wallet']}\n```",
         inline=True
     )
     embed.add_field(
-        name="Банк",
+        name="Bank",
         value=f"```\n{user_data['bank']}\n```",
         inline=True
     )
@@ -52,15 +52,15 @@ async def balance(
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="work", description="Заработать деньги")
+@bot.slash_command(name="work", description="Earn cash")
 async def work(ctx: disnake.ApplicationCommandInteraction):
     can, next_time = can_work(ctx.author.id)
     if not can:
         remaining = next_time - datetime.now(timezone.utc)
         wait_minutes = max(1, int(remaining.total_seconds() / 60))
         embed = disnake.Embed(
-            title="Работа недоступна",
-            description=f"Вы уже работали. Следующая работа доступна <t:{int(next_time.timestamp())}:R>",
+            title="Work is on cooldown",
+            description=f"You already worked. Next shift is available <t:{int(next_time.timestamp())}:R>",
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -69,7 +69,7 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
 
     earnings = random.randint(WORK_MIN, WORK_MAX)
     
-    # Проверка баффа от витаминов
+    # Vitamin boost check
     if ctx.author.id in active_buffs:
         boost_data = active_buffs[ctx.author.id]
         if boost_data["remaining"] > 0:
@@ -87,8 +87,8 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     update_stats(ctx.author.id, total_earned=earnings, work_earned=earnings, work_count=1)
 
     embed = disnake.Embed(
-        title="Работа",
-        description=f"Вы заработали **{earnings}** {CURRENCY}",
+        title="Work",
+        description=f"You earned **{earnings}** {CURRENCY}",
         color=EMBED_COLOR
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -97,10 +97,10 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="deposit", description="Положить деньги в банк")
+@bot.slash_command(name="deposit", description="Deposit cash into the bank")
 async def deposit(
     ctx: disnake.ApplicationCommandInteraction,
-    amount: str = commands.Param(description="Сумма или 'all'")
+    amount: str = commands.Param(description="Amount or 'all'")
 ):
     user_data = get_user_data(ctx.author.id)
     
@@ -111,8 +111,8 @@ async def deposit(
             amount_to_deposit = int(amount)
         except ValueError:
             embed = disnake.Embed(
-                title="Ошибка",
-                description="Укажите число или 'all'",
+                title="Error",
+                description="Enter a number or 'all'",
                 color=EMBED_COLOR
             )
             await safe_send(ctx, embed=embed, ephemeral=True)
@@ -120,8 +120,8 @@ async def deposit(
     
     if amount_to_deposit <= 0:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Сумма должна быть больше 0",
+            title="Error",
+            description="Amount must be greater than 0",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -129,8 +129,8 @@ async def deposit(
     
     if user_data["wallet"] < amount_to_deposit:
         embed = disnake.Embed(
-            title="Ошибка",
-            description=f"Недостаточно денег в кошельке!",
+            title="Error",
+            description=f"Not enough cash in your wallet!",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -143,17 +143,17 @@ async def deposit(
     update_user_bank(ctx.author.id, new_bank)
     
     embed = disnake.Embed(
-        title="Депозит",
-        description=f"Вы положили в банк **{amount_to_deposit}** {CURRENCY}",
+        title="Deposit",
+        description=f"You deposited **{amount_to_deposit}** {CURRENCY}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Кошелёк",
+        name="Wallet",
         value=f"{new_wallet} {CURRENCY}",
         inline=False
     )
     embed.add_field(
-        name="Банк",
+        name="Bank",
         value=f"{new_bank} {CURRENCY}",
         inline=False
     )
@@ -163,10 +163,10 @@ async def deposit(
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="withdraw", description="Снять деньги из банка")
+@bot.slash_command(name="withdraw", description="Withdraw cash from the bank")
 async def withdraw(
     ctx: disnake.ApplicationCommandInteraction,
-    amount: str = commands.Param(description="Сумма или 'all'")
+    amount: str = commands.Param(description="Amount or 'all'")
 ):
     user_data = get_user_data(ctx.author.id)
     
@@ -177,8 +177,8 @@ async def withdraw(
             amount_to_withdraw = int(amount)
         except ValueError:
             embed = disnake.Embed(
-                title="Ошибка",
-                description="Укажите число или 'all'",
+                title="Error",
+                description="Enter a number or 'all'",
                 color=EMBED_COLOR
             )
             await safe_send(ctx, embed=embed, ephemeral=True)
@@ -186,8 +186,8 @@ async def withdraw(
     
     if amount_to_withdraw <= 0:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Сумма должна быть больше 0",
+            title="Error",
+            description="Amount must be greater than 0",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -195,8 +195,8 @@ async def withdraw(
     
     if user_data["bank"] < amount_to_withdraw:
         embed = disnake.Embed(
-            title="Ошибка",
-            description=f"Недостаточно денег в банке!",
+            title="Error",
+            description=f"Not enough cash in your bank!",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -209,17 +209,17 @@ async def withdraw(
     update_user_bank(ctx.author.id, new_bank)
     
     embed = disnake.Embed(
-        title="Снятие денег",
-        description=f"Вы сняли из банка **{amount_to_withdraw}** {CURRENCY}",
+        title="Withdrawal",
+        description=f"You withdrew **{amount_to_withdraw}** {CURRENCY}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Кошелёк",
+        name="Wallet",
         value=f"{new_wallet} {CURRENCY}",
         inline=False
     )
     embed.add_field(
-        name="Банк",
+        name="Bank",
         value=f"{new_bank} {CURRENCY}",
         inline=False
     )

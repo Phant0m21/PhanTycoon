@@ -1,30 +1,30 @@
 {
     "business": {
-        "Шаурмичная": {
+        "Shawarma Stand": {
             "price": 1500,
             "income": 60,
             "emoji": "🌯",
             "category": "business"
         },
-        "Автомойка": {
+        "Car Wash": {
             "price": 6000,
             "income": 260,
             "emoji": "🚗",
             "category": "business"
         },
-        "Компьютерный клуб": {
+        "Gaming Cafe": {
             "price": 20000,
             "income": 1000,
             "emoji": "🎮",
             "category": "business"
         },
-        "Ночной клуб": {
+        "Nightclub": {
             "price": 50000,
             "income": 2800,
             "emoji": "💃",
             "category": "business"
         },
-        "Казино": {
+        "Casino": {
             "price": 150000,
             "income": 9000,
             "emoji": "🎰",
@@ -32,62 +32,62 @@
         }
     },
     "consumables": {
-        "Энергетик": {
+        "Energy Drink": {
             "price": 500,
             "effect": "reset_work",
             "emoji": "🥤",
             "category": "consumables",
-            "description": "Сбрасывает кулдаун /work"
+            "description": "Resets the /work cooldown"
         },
-        "Витамины": {
+        "Vitamins": {
             "price": 900,
             "effect": "work_boost",
             "emoji": "💊",
             "category": "consumables",
-            "description": "Следующие 3 работы дают 45% к заработку"
+            "description": "Your next 3 work shifts pay +45%"
         },
-        "Страховка": {
+        "Insurance": {
             "price": 2500,
             "effect": "insurance",
             "emoji": "📋",
             "category": "consumables",
-            "description": "Защищает от неудач в играх"
+            "description": "Protects you from minigame losses"
         }
     },
     "pickaxes": {
-        "Железная кирка": {
+        "Iron Pickaxe": {
             "price": 15000,
             "emoji": "<:ironpickaxe:1522995651095298129>",
             "category": "pickaxes"
         },
-        "Золотая кирка": {
+        "Golden Pickaxe": {
             "price": 75000,
             "emoji": "<:goldenpickaxe:1522995649828618292>",
             "category": "pickaxes"
         },
-        "Алмазная кирка": {
+        "Diamond Pickaxe": {
             "price": 350000,
             "emoji": "<:diamondpickaxe:1522995648511868928>",
             "category": "pickaxes"
         },
-        "Незеритовая кирка": {
+        "Netherite Pickaxe": {
             "price": 1500000,
             "emoji": "<:netheritepickaxe:1522995647073226843>",
             "category": "pickaxes"
         }
     },
     "other": {
-        "Золотая Корона": {
+        "Golden Crown": {
             "price": 1000000,
             "emoji": "👑",
             "category": "other",
-            "description": "Визуальное дополнение"
+            "description": "Profile flex cosmetic"
         },
-        "Личный Джет": {
+        "Private Jet": {
             "price": 10000000,
             "emoji": "🛩️",
             "category": "other",
-            "description": "Визуальное дополнение"
+            "description": "Profile flex cosmetic"
         }
     }
 }

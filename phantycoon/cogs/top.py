@@ -25,7 +25,7 @@ TOP_SORT_COLUMNS = {
     "games_played",
 }
 
-# ==================== ТОП С ПЕРЕКЛЮЧЕНИЕМ И СОРТИРОВКОЙ ====================
+# ==================== LEADERBOARD WITH MODE AND SORTING ====================
 
 class TopSelect(disnake.ui.Select):
     def __init__(self, author_id, mode="global", sort_by="balance"):
@@ -35,57 +35,57 @@ class TopSelect(disnake.ui.Select):
         
         options = [
             disnake.SelectOption(
-                label="💰 Общий баланс",
+                label="💰 Net worth",
                 value="balance",
-                description="Текущий баланс",
+                description="Current balance",
                 emoji="💰"
             ),
             disnake.SelectOption(
-                label="💵 Всего заработано",
+                label="💵 Total earned",
                 value="total_earned",
-                description="Всего заработано за всё время",
+                description="Total earned",
                 emoji="💵"
             ),
             disnake.SelectOption(
-                label="💸 Всего потрачено",
+                label="💸 Total spent",
                 value="total_spent",
-                description="Всего потрачено за всё время",
+                description="Total spent",
                 emoji="💸"
             ),
             disnake.SelectOption(
-                label="🛠 Заработано с работ",
+                label="🛠 Earned from jobs",
                 value="work_earned",
-                description="Заработано через работу",
+                description="Earned through /work",
                 emoji="🛠"
             ),
             disnake.SelectOption(
-                label="🏢 Заработано с бизнесов",
+                label="🏢 Earned from businesses",
                 value="collect_earned",
-                description="Заработано с бизнесов",
+                description="Earned from businesses",
                 emoji="🏢"
             ),
             disnake.SelectOption(
-                label="📊 Выполнено работ",
+                label="📊 Jobs completed",
                 value="work_count",
-                description="Количество выполненных работ",
+                description="Jobs completed",
                 emoji="📊"
             ),
             disnake.SelectOption(
-                label="🎮 Сыграно мини-игр",
+                label="🎮 Minigames played",
                 value="games_played",
-                description="Количество сыгранных мини-игр",
+                description="Minigames played",
                 emoji="🎮"
             )
         ]
         super().__init__(
-            placeholder="Выберите сортировку",
+            placeholder="Choose sorting",
             options=options,
             custom_id="top_sort_select"
         )
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
         await safe_defer(inter, with_message=False)
@@ -114,14 +114,14 @@ class TopView(disnake.ui.View):
         conn = get_db()
         cursor = conn.cursor()
         
-        # Получаем данные в зависимости от режима
+        # Fetch data depending on mode
         if self.mode == "global":
             if self.sort_by == "balance":
                 query = "SELECT user_id, wallet + bank as value FROM users WHERE wallet + bank > 0 ORDER BY value DESC"
             else:
                 query = f"SELECT user_id, {self.sort_by} as value FROM users WHERE {self.sort_by} > 0 ORDER BY {self.sort_by} DESC"
             cursor.execute(query)
-            title = "Глобальный лидерборд"
+            title = "Global Leaderboard"
         else:
             guild_members = [str(member.id) for member in inter.guild.members if not member.bot]
             placeholders = ",".join(["?"] * len(guild_members))
@@ -138,7 +138,7 @@ class TopView(disnake.ui.View):
                     query = f"SELECT user_id, {self.sort_by} as value FROM users WHERE {self.sort_by} > 0 ORDER BY {self.sort_by} DESC"
                 cursor.execute(query)
             
-            title = f"Лидерборд сервера {inter.guild.name}"
+            title = f"Server Leaderboard {inter.guild.name}"
         
         users = cursor.fetchall()
         conn.close()
@@ -146,7 +146,7 @@ class TopView(disnake.ui.View):
         if not users:
             embed = disnake.Embed(
                 title=title,
-                description="Нет пользователей",
+                description="No users yet",
                 color=EMBED_COLOR
             )
             await safe_edit(inter, embed=embed, view=self)
@@ -165,18 +165,18 @@ class TopView(disnake.ui.View):
         admin = await inter.bot.fetch_user(DEV_ID)
         leaderboard = []
         
-        # Названия для полей
+        # Field names
         field_names = {
-            "balance": "Общий баланс",
-            "total_earned": "Всего заработано",
-            "total_spent": "Всего потрачено",
-            "work_earned": "Заработано с /work",
-            "collect_earned": "Заработано с /collect",
-            "work_count": "Выполнено работ",
-            "games_played": "Сыграно игр"
+            "balance": "Net worth",
+            "total_earned": "Total earned",
+            "total_spent": "Total spent",
+            "work_earned": "Earned from /work",
+            "collect_earned": "Earned from /collect",
+            "work_count": "Jobs completed",
+            "games_played": "Games played"
         }
         
-        field_name = field_names.get(self.sort_by, "Значение")
+        field_name = field_names.get(self.sort_by, "Value")
         currency_fields = ["balance", "total_earned", "total_spent", "work_earned", "collect_earned"]
         
         for idx, (user_id, value) in enumerate(page_users, start=start + 1):
@@ -184,7 +184,7 @@ class TopView(disnake.ui.View):
                 user = await inter.bot.fetch_user(int(user_id))
                 name = user.display_name if hasattr(user, 'display_name') else user.name
             except (ValueError, disnake.DiscordException):
-                name = f"Пользователь {user_id}"
+                name = f"User {user_id}"
             
             if self.sort_by in currency_fields:
                 leaderboard.append(f"{idx}. {name} • {value} {CURRENCY}")
@@ -193,10 +193,10 @@ class TopView(disnake.ui.View):
         
         embed = disnake.Embed(
             title=title,
-            description=f"Админ бота: {admin.mention}\nСортировка: **{field_name}**\n\n" + "\n".join(leaderboard),
+            description=f"Bot admin: {admin.mention}\nSort: **{field_name}**\n\n" + "\n".join(leaderboard),
             color=EMBED_COLOR
         )
-        embed.set_footer(text=f"Страница {self.page}/{total_pages}")
+        embed.set_footer(text=f"Page {self.page}/{total_pages}")
         
         self.clear_items()
         self.add_item(TopToggleButton(self.mode))
@@ -229,7 +229,7 @@ class TopToggleButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         await safe_defer(inter, with_message=False)
         new_mode = "server" if self.mode == "global" else "global"
@@ -246,17 +246,17 @@ class TopPageButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         await safe_defer(inter, with_message=False)
         self.view.page = self.current_page - 1 if self.direction == "prev" else self.current_page + 1
         await self.view.update_embed(inter)
 
 
-@bot.slash_command(name="top", description="Показать топ участников")
+@bot.slash_command(name="top", description="Show leaderboard")
 async def top(
     ctx: disnake.ApplicationCommandInteraction,
-    page: int = commands.Param(default=1, ge=1, description="Номер страницы")
+    page: int = commands.Param(default=1, ge=1, description="Page number")
 ):
     await safe_defer(ctx)
     
@@ -268,8 +268,8 @@ async def top(
     
     if not users:
         embed = disnake.Embed(
-            title="Глобальный лидерборд",
-            description="Нет пользователей",
+            title="Global Leaderboard",
+            description="No users yet",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed)
@@ -292,15 +292,15 @@ async def top(
             user = await bot.fetch_user(int(user_id))
             name = user.display_name if hasattr(user, 'display_name') else user.name
         except (ValueError, disnake.DiscordException):
-            name = f"Пользователь {user_id}"
+            name = f"User {user_id}"
         leaderboard.append(f"{idx}. {name} • {total} {CURRENCY}")
     
     embed = disnake.Embed(
-        title="Глобальный лидерборд",
-        description=f"Админ бота: {admin.mention}\n\n" + "\n".join(leaderboard),
+        title="Global Leaderboard",
+        description=f"Bot admin: {admin.mention}\n\n" + "\n".join(leaderboard),
         color=EMBED_COLOR
     )
-    embed.set_footer(text=f"Страница {page}/{total_pages}")
+    embed.set_footer(text=f"Page {page}/{total_pages}")
     
     view = TopView(ctx.author.id, mode="global", sort_by="balance", page=page)
     view.clear_items()
@@ -317,7 +317,7 @@ async def top(
 
 
 
-@bot.slash_command(name="ping", description="Показать техническую информацию бота")
+@bot.slash_command(name="ping", description="Show bot technical info")
 async def ping(ctx: disnake.ApplicationCommandInteraction):
     ping_ms = round(bot.latency * 1000)
     
@@ -327,19 +327,19 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
     minutes = (uptime_seconds % 3600) // 60
     seconds = uptime_seconds % 60
     
-    uptime_str = f"{days}д {hours}ч {minutes}м {seconds}с"
+    uptime_str = f"{days}d {hours}h {minutes}m {seconds}s"
     
     embed = disnake.Embed(
-        title="Техническая информация",
+        title="Technical Info",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Пинг",
-        value=f"{ping_ms} мс",
+        name="Ping",
+        value=f"{ping_ms} ms",
         inline=False
     )
     embed.add_field(
-        name="Запущен",
+        name="Started",
         value=f"<t:{int(BOT_START_TIME.timestamp())}:F>",
         inline=False
     )
@@ -349,20 +349,20 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="restart", description="Перезапустить бота (только для разработчика)")
+@bot.slash_command(name="restart", description="Restart the bot (developer only)")
 async def restart(ctx: disnake.ApplicationCommandInteraction):
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Эта команда доступна только разработчику бота!",
+            title="Error",
+            description="This command is developer-only.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     embed = disnake.Embed(
-        title="Перезагрузка",
-        description="Бот перезапускается...",
+        title="Restarting",
+        description="Bot is restarting...",
         color=EMBED_COLOR
     )
     await safe_send(ctx, embed=embed, ephemeral=True)
@@ -370,16 +370,16 @@ async def restart(ctx: disnake.ApplicationCommandInteraction):
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
-@bot.slash_command(name="add_money", description="Выдать деньги пользователю (только для разработчика)")
+@bot.slash_command(name="add_money", description="Give cash to a user (developer only)")
 async def add_money(
     ctx: disnake.ApplicationCommandInteraction,
-    amount: int = commands.Param(gt=0, description="Сумма"),
-    user: disnake.User = commands.Param(description="Пользователь")
+    amount: int = commands.Param(gt=0, description="Amount"),
+    user: disnake.User = commands.Param(description="User")
 ):
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Эта команда доступна только разработчику бота!",
+            title="Error",
+            description="This command is developer-only.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -391,12 +391,12 @@ async def add_money(
     update_stats(user.id, total_earned=amount)
     
     embed = disnake.Embed(
-        title="Выдача денег",
-        description=f"{ctx.author.mention} выдал {user.mention} **{amount}** {CURRENCY}",
+        title="Cash Granted",
+        description=f"{ctx.author.mention} gave {user.mention} **{amount}** {CURRENCY}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Новый баланс",
+        name="New balance",
         value=f"{new_wallet} {CURRENCY}",
         inline=False
     )
@@ -406,16 +406,16 @@ async def add_money(
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="remove_money", description="Забрать деньги у пользователя (только для разработчика)")
+@bot.slash_command(name="remove_money", description="Remove cash from a user (developer only)")
 async def remove_money(
     ctx: disnake.ApplicationCommandInteraction,
-    amount: int = commands.Param(gt=0, description="Сумма"),
-    user: disnake.User = commands.Param(description="Пользователь")
+    amount: int = commands.Param(gt=0, description="Amount"),
+    user: disnake.User = commands.Param(description="User")
 ):
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Эта команда доступна только разработчику бота!",
+            title="Error",
+            description="This command is developer-only.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -425,8 +425,8 @@ async def remove_money(
     
     if user_data["wallet"] < amount:
         embed = disnake.Embed(
-            title="Ошибка",
-            description=f"Недостаточно денег! Баланс: {user_data['wallet']} {CURRENCY}",
+            title="Error",
+            description=f"Not enough cash! Balance: {user_data['wallet']} {CURRENCY}",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -436,12 +436,12 @@ async def remove_money(
     update_user_wallet(user.id, new_wallet)
     
     embed = disnake.Embed(
-        title="Списание денег",
-        description=f"{ctx.author.mention} забрал у {user.mention} **{amount}** {CURRENCY}",
+        title="Cash Removed",
+        description=f"{ctx.author.mention} removed from {user.mention} **{amount}** {CURRENCY}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Новый баланс",
+        name="New balance",
         value=f"{new_wallet} {CURRENCY}",
         inline=False
     )
@@ -451,16 +451,16 @@ async def remove_money(
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="set_money", description="Установить точную сумму денег пользователю (только для разработчика)")
+@bot.slash_command(name="set_money", description="Set a user balance (developer only)")
 async def set_money(
     ctx: disnake.ApplicationCommandInteraction,
-    amount: int = commands.Param(ge=0, description="Сумма (0 - обнулить)"),
-    user: disnake.User = commands.Param(description="Пользователь")
+    amount: int = commands.Param(ge=0, description="Amount (0 to reset)"),
+    user: disnake.User = commands.Param(description="User")
 ):
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Эта команда доступна только разработчику бота!",
+            title="Error",
+            description="This command is developer-only.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -472,17 +472,17 @@ async def set_money(
     update_user_wallet(user.id, amount)
     
     embed = disnake.Embed(
-        title="Установка баланса",
-        description=f"{ctx.author.mention} установил баланс {user.mention} на **{amount}** {CURRENCY}",
+        title="Balance Set",
+        description=f"{ctx.author.mention} set balance for {user.mention} to **{amount}** {CURRENCY}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Старый баланс",
+        name="Old balance",
         value=f"{old_wallet} {CURRENCY}",
         inline=True
     )
     embed.add_field(
-        name="Новый баланс",
+        name="New balance",
         value=f"{amount} {CURRENCY}",
         inline=True
     )

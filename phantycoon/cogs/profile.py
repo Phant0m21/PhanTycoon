@@ -15,7 +15,7 @@ from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
-# ==================== ПРОФИЛЬ ====================
+# ==================== PROFILE ====================
 
 class ProfileView(disnake.ui.View):
     def __init__(self, author_id, target_id, mode="profile"):
@@ -25,8 +25,8 @@ class ProfileView(disnake.ui.View):
         self.mode = mode
         self.message = None
         
-        self.add_item(ProfileButton("Профиль", "profile", disnake.ButtonStyle.primary if mode == "profile" else disnake.ButtonStyle.secondary))
-        self.add_item(ProfileButton("Статистика", "stats", disnake.ButtonStyle.primary if mode == "stats" else disnake.ButtonStyle.secondary))
+        self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary if mode == "profile" else disnake.ButtonStyle.secondary))
+        self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary if mode == "stats" else disnake.ButtonStyle.secondary))
     
     async def update_embed(self, inter: disnake.MessageInteraction):
         target = await inter.bot.fetch_user(self.target_id)
@@ -34,79 +34,79 @@ class ProfileView(disnake.ui.View):
         
         if self.mode == "profile":
             embed = disnake.Embed(
-                title=f"Профиль {target.name}",
+                title=f"Profile {target.name}",
                 color=EMBED_COLOR
             )
             
             total = user_data["wallet"] + user_data["bank"]
             
             embed.add_field(
-                name="Престиж",
+                name="Prestige",
                 value="0",
                 inline=False
             )
             embed.add_field(
-                name="Клан",
-                value="Не в клане",
+                name="Clan",
+                value="No clan",
                 inline=False
             )
             embed.add_field(
-                name="Общий баланс",
+                name="Net worth",
                 value=f"{total} {CURRENCY}",
                 inline=False
             )
             embed.add_field(
-                name="Кошелёк",
+                name="Wallet",
                 value=f"{user_data['wallet']} {CURRENCY}",
                 inline=False
             )
             embed.add_field(
-                name="Банк",
+                name="Bank",
                 value=f"{user_data['bank']} {CURRENCY}",
                 inline=False
             )
             
-            # Текущая кирка
-            current_pickaxe = user_data.get("current_pickaxe", "Каменная кирка")
+            # Current pickaxe
+            current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
             pickaxe_emoji = PICKAXES.get(current_pickaxe, {}).get("emoji", "")
             embed.add_field(
-                name="Кирка",
+                name="Pickaxe",
                 value=f"{pickaxe_emoji} {current_pickaxe}",
                 inline=False
             )
             
-            # Уровни апгрейдов
+            # Upgrade levels
             time_level = user_data.get("time_management_level", 0)
             business_level = user_data.get("business_optimization_level", 0)
             miner_level = user_data.get("miner_boost_level", 0)
             
             embed.add_field(
-                name="⏱️ Менеджмент времени",
-                value=f"Уровень {time_level}/{UPGRADES['time_management']['max_level']}",
+                name="⏱️ Time Management",
+                value=f"Level {time_level}/{UPGRADES['time_management']['max_level']}",
                 inline=True
             )
             embed.add_field(
-                name="🏢 Оптимизация бизнесов",
-                value=f"Уровень {business_level}/{UPGRADES['business_optimization']['max_level']}",
+                name="🏢 Business Optimization",
+                value=f"Level {business_level}/{UPGRADES['business_optimization']['max_level']}",
                 inline=True
             )
             embed.add_field(
-                name="⛏️ Майнер руды",
-                value=f"Уровень {miner_level}/{UPGRADES['miner_boost']['max_level']}",
+                name="⛏️ Ore Miner",
+                value=f"Level {miner_level}/{UPGRADES['miner_boost']['max_level']}",
                 inline=True
             )
             
             businesses = get_user_businesses(self.target_id)
             if businesses:
                 embed.add_field(
-                    name="Активные бизнесы",
+                    name="Active businesses",
                     value="\n".join(businesses),
                     inline=False
                 )
             else:
                 embed.add_field(
-                    name="Активные бизнесы",
-                    value="Нет",
+                    name="Active businesses",
+                    value="None",
                     inline=False
                 )
             
@@ -114,50 +114,50 @@ class ProfileView(disnake.ui.View):
             
         else:  # stats
             embed = disnake.Embed(
-                title=f"Статистика {target.name}",
+                title=f"Stats {target.name}",
                 color=EMBED_COLOR
             )
             
             registered_dt = datetime.fromisoformat(user_data["registered_at"])
             months = {
-                1: "января", 2: "февраля", 3: "марта", 4: "апреля",
-                5: "мая", 6: "июня", 7: "июля", 8: "августа",
-                9: "сентября", 10: "октября", 11: "ноября", 12: "декабря"
+                1: "January", 2: "February", 3: "March", 4: "April",
+                5: "May", 6: "June", 7: "July", 8: "August",
+                9: "September", 10: "October", 11: "November", 12: "December"
             }
             registered = f"{registered_dt.day} {months[registered_dt.month]} {registered_dt.year}"
             
             embed.add_field(
-                name="Дата регистрации",
+                name="Registered",
                 value=registered,
                 inline=False
             )
             embed.add_field(
-                name="Всего заработано за всё время",
+                name="Total earned",
                 value=f"{user_data['total_earned']} {CURRENCY}",
                 inline=False
             )
             embed.add_field(
-                name="Всего потрачено за всё время",
+                name="Total spent",
                 value=f"{user_data['total_spent']} {CURRENCY}",
                 inline=False
             )
             embed.add_field(
-                name="Заработано с /work",
+                name="Earned from /work",
                 value=f"{user_data['work_earned']} {CURRENCY}",
                 inline=False
             )
             embed.add_field(
-                name="Заработано с /collect",
+                name="Earned from /collect",
                 value=f"{user_data['collect_earned']} {CURRENCY}",
                 inline=False
             )
             embed.add_field(
-                name="Выполнено работ",
+                name="Jobs completed",
                 value=f"{user_data['work_count']}",
                 inline=False
             )
             embed.add_field(
-                name="Сыграно мини-игр",
+                name="Minigames played",
                 value=f"{user_data['games_played']}",
                 inline=False
             )
@@ -165,8 +165,8 @@ class ProfileView(disnake.ui.View):
             embed.set_thumbnail(url=target.display_avatar.url)
         
         self.clear_items()
-        self.add_item(ProfileButton("Профиль", "profile", disnake.ButtonStyle.primary if self.mode == "profile" else disnake.ButtonStyle.secondary))
-        self.add_item(ProfileButton("Статистика", "stats", disnake.ButtonStyle.primary if self.mode == "stats" else disnake.ButtonStyle.secondary))
+        self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary if self.mode == "profile" else disnake.ButtonStyle.secondary))
+        self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary if self.mode == "stats" else disnake.ButtonStyle.secondary))
         
         await safe_edit(inter, embed=embed, view=self)
     
@@ -188,7 +188,7 @@ class ProfileButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
         await safe_defer(inter, with_message=False)
@@ -196,88 +196,88 @@ class ProfileButton(disnake.ui.Button):
         await self.view.update_embed(inter)
 
 
-@bot.slash_command(name="profile", description="Показать профиль пользователя")
+@bot.slash_command(name="profile", description="Show user profile")
 async def profile(
     ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(default=None, description="Пользователь")
+    user: disnake.User = commands.Param(default=None, description="User")
 ):
     target = user or ctx.author
     user_data = get_user_data(target.id)
     
     embed = disnake.Embed(
-        title=f"Профиль {target.name}",
+        title=f"Profile {target.name}",
         color=EMBED_COLOR
     )
     
     total = user_data["wallet"] + user_data["bank"]
     
     embed.add_field(
-        name="Престиж",
+        name="Prestige",
         value="0",
         inline=False
     )
     embed.add_field(
-        name="Клан",
-        value="Не в клане",
+        name="Clan",
+        value="No clan",
         inline=False
     )
     embed.add_field(
-        name="Общий баланс",
+        name="Net worth",
         value=f"{total} {CURRENCY}",
         inline=False
     )
     embed.add_field(
-        name="Кошелёк",
+        name="Wallet",
         value=f"{user_data['wallet']} {CURRENCY}",
         inline=False
     )
     embed.add_field(
-        name="Банк",
+        name="Bank",
         value=f"{user_data['bank']} {CURRENCY}",
         inline=False
     )
     
-    # Текущая кирка
-    current_pickaxe = user_data.get("current_pickaxe", "Каменная кирка")
+    # Current pickaxe
+    current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
     pickaxe_emoji = PICKAXES.get(current_pickaxe, {}).get("emoji", "")
     embed.add_field(
-        name="Кирка",
+        name="Pickaxe",
         value=f"{pickaxe_emoji} {current_pickaxe}",
         inline=False
     )
     
-    # Уровни апгрейдов
+    # Upgrade levels
     time_level = user_data.get("time_management_level", 0)
     business_level = user_data.get("business_optimization_level", 0)
     miner_level = user_data.get("miner_boost_level", 0)
     
     embed.add_field(
-        name="⏱️ Менеджмент времени",
-        value=f"Уровень {time_level}/{UPGRADES['time_management']['max_level']}",
+        name="⏱️ Time Management",
+        value=f"Level {time_level}/{UPGRADES['time_management']['max_level']}",
         inline=True
     )
     embed.add_field(
-        name="🏢 Оптимизация бизнесов",
-        value=f"Уровень {business_level}/{UPGRADES['business_optimization']['max_level']}",
+        name="🏢 Business Optimization",
+        value=f"Level {business_level}/{UPGRADES['business_optimization']['max_level']}",
         inline=True
     )
     embed.add_field(
-        name="⛏️ Майнер руды",
-        value=f"Уровень {miner_level}/{UPGRADES['miner_boost']['max_level']}",
+        name="⛏️ Ore Miner",
+        value=f"Level {miner_level}/{UPGRADES['miner_boost']['max_level']}",
         inline=True
     )
     
     businesses = get_user_businesses(target.id)
     if businesses:
         embed.add_field(
-            name="Активные бизнесы",
+            name="Active businesses",
             value="\n".join(businesses),
             inline=False
         )
     else:
         embed.add_field(
-            name="Активные бизнесы",
-            value="Нет",
+            name="Active businesses",
+            value="None",
             inline=False
         )
     

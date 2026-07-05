@@ -52,8 +52,8 @@ class UpgradesView(disnake.ui.View):
         user_data = get_user_data(self.author_id)
         
         embed = disnake.Embed(
-            title="Улучшения",
-            description="Пассивные улучшения, которые работают постоянно",
+            title="Upgrades",
+            description="Passive upgrades that are always active.",
             color=EMBED_COLOR
         )
         
@@ -62,19 +62,19 @@ class UpgradesView(disnake.ui.View):
             max_level = upgrade_data["max_level"]
             
             if current_level >= max_level:
-                status = "МАКСИМАЛЬНЫЙ УРОВЕНЬ"
+                status = "MAX LEVEL"
             else:
                 next_level = upgrade_data["levels"][current_level]
                 price = next_level["price"]
-                status = f"Уровень {current_level}/{max_level} → Следующий: {price} {CURRENCY}"
+                status = f"Level {current_level}/{max_level} → Next: {price} {CURRENCY}"
             
-            # Описание эффекта
+            # Effect description
             if upgrade_id == "time_management":
-                effect_desc = "Снижает кулдаун /work и /mine"
+                effect_desc = "Reduces /work and /mine cooldowns"
             elif upgrade_id == "business_optimization":
-                effect_desc = "Увеличивает доход с бизнесов"
+                effect_desc = "Increases business income"
             elif upgrade_id == "miner_boost":
-                effect_desc = "Увеличивает стоимость продажи руды"
+                effect_desc = "Increases ore sale value"
             
             embed.add_field(
                 name=f"{upgrade_data['name']}",
@@ -110,7 +110,7 @@ class UpgradeButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
         await safe_defer(inter)
@@ -121,8 +121,8 @@ class UpgradeButton(disnake.ui.Button):
         
         if current_level >= upgrade_data["max_level"]:
             embed = disnake.Embed(
-                title="Ошибка",
-                description="У вас уже максимальный уровень этого улучшения!",
+                title="Error",
+                description="This upgrade is already maxed.",
                 color=EMBED_COLOR
             )
             await safe_send(inter, embed=embed, ephemeral=True)
@@ -133,41 +133,41 @@ class UpgradeButton(disnake.ui.Button):
         
         if user_data["wallet"] < price:
             embed = disnake.Embed(
-                title="Ошибка",
-                description=f"Недостаточно денег! Нужно: {price} {CURRENCY}",
+                title="Error",
+                description=f"Not enough cash! Need: {price} {CURRENCY}",
                 color=EMBED_COLOR
             )
             await safe_send(inter, embed=embed, ephemeral=True)
             return
         
-        # Списываем деньги
+        # Charge wallet
         new_wallet = user_data["wallet"] - price
         update_user_wallet(inter.author.id, new_wallet)
         
-        # Повышаем уровень
+        # Increase level
         new_level = current_level + 1
         update_upgrade_level(inter.author.id, f"{self.upgrade_id}_level", new_level)
         
         embed = disnake.Embed(
-            title="Улучшение куплено",
-            description=f"{upgrade_data['name']} повышен до **{new_level} уровня** за {price} {CURRENCY}",
+            title="Upgrade Purchased",
+            description=f"{upgrade_data['name']} upgraded to **{new_level} level** for {price} {CURRENCY}",
             color=EMBED_COLOR
         )
         await safe_send(inter, embed=embed, ephemeral=True)
         
-        # Обновляем основное сообщение
+        # Refresh main message
         await self.view.update_embed(inter)
 
 
-@bot.slash_command(name="shop_upgrades", description="Купить пассивные улучшения")
+@bot.slash_command(name="shop_upgrades", description="Buy passive upgrades")
 async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
     await safe_defer(ctx)
     
     user_data = get_user_data(ctx.author.id)
     
     embed = disnake.Embed(
-        title="Улучшения",
-        description="Пассивные улучшения, которые работают постоянно",
+        title="Upgrades",
+        description="Passive upgrades that are always active.",
         color=EMBED_COLOR
     )
     
@@ -176,19 +176,19 @@ async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
         max_level = upgrade_data["max_level"]
         
         if current_level >= max_level:
-            status = "МАКСИМАЛЬНЫЙ УРОВЕНЬ"
+            status = "MAX LEVEL"
         else:
             next_level = upgrade_data["levels"][current_level]
             price = next_level["price"]
-            status = f"Уровень {current_level}/{max_level} → Следующий: {price} {CURRENCY}"
+            status = f"Level {current_level}/{max_level} → Next: {price} {CURRENCY}"
         
-        # Описание эффекта
+        # Effect description
         if upgrade_id == "time_management":
-            effect_desc = "Снижает кулдаун /work и /mine"
+            effect_desc = "Reduces /work and /mine cooldowns"
         elif upgrade_id == "business_optimization":
-            effect_desc = "Увеличивает доход с бизнесов"
+            effect_desc = "Increases business income"
         elif upgrade_id == "miner_boost":
-            effect_desc = "Увеличивает стоимость продажи руды"
+            effect_desc = "Increases ore sale value"
         
         embed.add_field(
             name=f"{upgrade_data['name']}",

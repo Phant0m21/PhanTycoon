@@ -15,22 +15,22 @@ from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
-# ==================== МАГАЗИН ====================
+# ==================== SHOP ====================
 
 class ShopSelect(disnake.ui.Select):
     def __init__(self, author_id):
         self.author_id = author_id
         options = [
-            disnake.SelectOption(label="🏢 Бизнесы", value="business", description="Пассивный доход"),
-            disnake.SelectOption(label="⚡ Расходники", value="consumables", description="Одноразовые предметы"),
-            disnake.SelectOption(label="⛏️ Кирки", value="pickaxes", description="Улучшайте добычу"),
-            disnake.SelectOption(label="💎 Другое", value="other", description="Визуальные предметы")
+            disnake.SelectOption(label="🏢 Businesses", value="business", description="Passive income"),
+            disnake.SelectOption(label="⚡ Consumables", value="consumables", description="One-use items"),
+            disnake.SelectOption(label="⛏️ Pickaxes", value="pickaxes", description="Upgrade mining"),
+            disnake.SelectOption(label="💎 Other", value="other", description="Visual items")
         ]
-        super().__init__(placeholder="Выберите категорию", options=options, custom_id="shop_select")
+        super().__init__(placeholder="Choose a category", options=options, custom_id="shop_select")
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
         await safe_defer(inter, with_message=False)
@@ -39,26 +39,26 @@ class ShopSelect(disnake.ui.Select):
         items = shop.get(category, {})
         user_businesses = get_user_businesses(inter.author.id)
         user_data = get_user_data(inter.author.id)
-        current_pickaxe = user_data.get("current_pickaxe", "Каменная кирка")
+        current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
         
         if category == "business":
             embed = disnake.Embed(
-                title="🏢 Бизнесы",
-                description="Приносят пассивный доход раз в 6 часов через `/collect`",
+                title="🏢 Businesses",
+                description="Generate passive income every 6 hours with `/collect`",
                 color=EMBED_COLOR
             )
             for name, data in items.items():
                 check = " ✅" if name in user_businesses else ""
                 embed.add_field(
                     name=f"{data['emoji']} {name} - {data['price']} {CURRENCY}{check}",
-                    value=f"Приносит {data['income']} {CURRENCY} раз в 6 часов",
+                    value=f"Pays {data['income']} {CURRENCY} every 6 hours",
                     inline=False
                 )
                 
         elif category == "consumables":
             embed = disnake.Embed(
-                title="⚡ Расходники",
-                description="Одноразовые предметы для инвентаря",
+                title="⚡ Consumables",
+                description="One-use inventory items",
                 color=EMBED_COLOR
             )
             for name, data in items.items():
@@ -70,8 +70,8 @@ class ShopSelect(disnake.ui.Select):
         
         elif category == "pickaxes":
             embed = disnake.Embed(
-                title="⛏️ Кирки",
-                description="Улучшайте свою кирку для более эффективной добычи!",
+                title="⛏️ Pickaxes",
+                description="Upgrade your pickaxe for better mining runs.",
                 color=EMBED_COLOR
             )
             for name, data in items.items():
@@ -82,14 +82,14 @@ class ShopSelect(disnake.ui.Select):
                 ores_list = ", ".join(pickaxe_data.get("ores", []))
                 embed.add_field(
                     name=f"{pickaxe_data.get('emoji', '')} {name} - {data['price']} {CURRENCY}{check}",
-                    value=f"Кулдаун: {pickaxe_data.get('cooldown', 0)} сек\nРуда: {ores_list}",
+                    value=f"Cooldown: {pickaxe_data.get('cooldown', 0)} sec\nOre: {ores_list}",
                     inline=False
                 )
                 
         elif category == "other":
             embed = disnake.Embed(
-                title="💎 Другое",
-                description="Визуальные предметы для профиля",
+                title="💎 Other",
+                description="Profile flex items",
                 color=EMBED_COLOR
             )
             for name, data in items.items():
@@ -99,7 +99,7 @@ class ShopSelect(disnake.ui.Select):
                     inline=False
                 )
         
-        embed.set_footer(text="Для покупки используйте `/buy`")
+        embed.set_footer(text="Use `/buy` to purchase an item")
         await safe_edit(inter, embed=embed, view=self.view)
 
 
@@ -109,11 +109,11 @@ class ShopView(disnake.ui.View):
         self.add_item(ShopSelect(author_id))
 
 
-@bot.slash_command(name="shop", description="Открыть магазин")
+@bot.slash_command(name="shop", description="Open the shop")
 async def shop(ctx: disnake.ApplicationCommandInteraction):
     embed = disnake.Embed(
-        title="Магазин бота",
-        description="Выберите категорию в меню ниже",
+        title="Shop",
+        description="Choose a category below",
         color=EMBED_COLOR
     )
     view = ShopView(ctx.author.id)
@@ -121,11 +121,11 @@ async def shop(ctx: disnake.ApplicationCommandInteraction):
     await safe_send(ctx, embed=embed, view=view)
 
 
-@bot.slash_command(name="buy", description="Купить товар")
+@bot.slash_command(name="buy", description="Buy an item")
 async def buy(
     ctx: disnake.ApplicationCommandInteraction,
-    name: str = commands.Param(description="Название товара"),
-    quantity: int = commands.Param(default=1, gt=0, description="Количество")
+    name: str = commands.Param(description="Item name"),
+    quantity: int = commands.Param(default=1, gt=0, description="Quantity")
 ):
     shop = load_shop()
     
@@ -143,8 +143,8 @@ async def buy(
     
     if not found_item:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Товар не найден! Используйте /shop для просмотра товаров",
+            title="Error",
+            description="Item not found. Use /shop to browse the shop.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -156,8 +156,8 @@ async def buy(
     user_data = get_user_data(ctx.author.id)
     if user_data["wallet"] < total_price:
         embed = disnake.Embed(
-            title="Ошибка",
-            description=f"Недостаточно денег! Нужно: {total_price} {CURRENCY}",
+            title="Error",
+            description=f"Not enough cash! Need: {total_price} {CURRENCY}",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -165,8 +165,8 @@ async def buy(
 
     if found_category in {"business", "pickaxes"} and quantity != 1:
         embed = disnake.Embed(
-            title="Ошибка",
-            description="Этот товар можно купить только в количестве 1 шт.",
+            title="Error",
+            description="This item can only be bought one at a time.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -176,8 +176,8 @@ async def buy(
         businesses = get_user_businesses(ctx.author.id)
         if found_item in businesses:
             embed = disnake.Embed(
-                title="Ошибка",
-                description="У вас уже есть этот бизнес!",
+                title="Error",
+                description="You already own this business.",
                 color=EMBED_COLOR
             )
             await safe_send(ctx, embed=embed, ephemeral=True)
@@ -188,13 +188,13 @@ async def buy(
         add_business(ctx.author.id, found_item)
         
         embed = disnake.Embed(
-            title="Покупка",
-            description=f"{ctx.author.mention} купил **{found_item}** за {total_price} {CURRENCY}",
+            title="Purchase",
+            description=f"{ctx.author.mention} bought **{found_item}** for {total_price} {CURRENCY}",
             color=EMBED_COLOR
         )
         embed.add_field(
-            name="Доход",
-            value=f"{item_data['income']} {CURRENCY} раз в 6 часов",
+            name="Income",
+            value=f"{item_data['income']} {CURRENCY} every 6 hours",
             inline=False
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -208,24 +208,24 @@ async def buy(
         update_user_inventory(ctx.author.id, inventory)
         
         embed = disnake.Embed(
-            title="Покупка",
-            description=f"{ctx.author.mention} купил **{found_item}** x{quantity} за {total_price} {CURRENCY}",
+            title="Purchase",
+            description=f"{ctx.author.mention} bought **{found_item}** x{quantity} for {total_price} {CURRENCY}",
             color=EMBED_COLOR
         )
         embed.add_field(
-            name="Теперь в инвентаре",
-            value=f"{inventory[found_item]} шт.",
+            name="Now in inventory",
+            value=f"{inventory[found_item]} pcs.",
             inline=False
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
     elif found_category == "pickaxes":
-        # Проверяем, не куплена ли уже кирка
+        # Check whether the pickaxe is already owned
         inventory = get_user_inventory(ctx.author.id)
         if found_item in inventory and inventory[found_item] > 0:
             embed = disnake.Embed(
-                title="Ошибка",
-                description="У вас уже есть эта кирка!",
+                title="Error",
+                description="You already own this pickaxe.",
                 color=EMBED_COLOR
             )
             await safe_send(ctx, embed=embed, ephemeral=True)
@@ -234,18 +234,18 @@ async def buy(
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
         update_stats(ctx.author.id, total_spent=total_price)
 
-        # Добавляем кирку в инвентарь
+        # Add pickaxe to inventory
         inventory[found_item] = inventory.get(found_item, 0) + quantity
         update_user_inventory(ctx.author.id, inventory)
         
         embed = disnake.Embed(
-            title="Покупка",
-            description=f"{ctx.author.mention} купил **{found_item}** за {total_price} {CURRENCY}",
+            title="Purchase",
+            description=f"{ctx.author.mention} bought **{found_item}** for {total_price} {CURRENCY}",
             color=EMBED_COLOR
         )
         embed.add_field(
-            name="Теперь в инвентаре",
-            value=f"{inventory[found_item]} шт.",
+            name="Now in inventory",
+            value=f"{inventory[found_item]} pcs.",
             inline=False
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -259,13 +259,13 @@ async def buy(
         update_user_inventory(ctx.author.id, inventory)
         
         embed = disnake.Embed(
-            title="Покупка",
-            description=f"{ctx.author.mention} купил **{found_item}** x{quantity} за {total_price} {CURRENCY}",
+            title="Purchase",
+            description=f"{ctx.author.mention} bought **{found_item}** x{quantity} for {total_price} {CURRENCY}",
             color=EMBED_COLOR
         )
         embed.add_field(
-            name="Теперь в инвентаре",
-            value=f"{inventory[found_item]} шт.",
+            name="Now in inventory",
+            value=f"{inventory[found_item]} pcs.",
             inline=False
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)

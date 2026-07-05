@@ -22,21 +22,21 @@ class MineView(disnake.ui.View):
         super().__init__(timeout=60)
         self.author_id = author_id
     
-    @disnake.ui.button(label="Копать снова", style=disnake.ButtonStyle.primary)
+    @disnake.ui.button(label="Mine again", style=disnake.ButtonStyle.primary)
     async def mine_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
         await safe_defer(inter)
-        # Проверяем кулдаун
+        # Check cooldown
         can, next_time, cooldown = can_mine(inter.author.id)
         if not can:
             remaining = next_time - datetime.now(timezone.utc)
             wait_seconds = max(1, int(remaining.total_seconds()))
             embed = disnake.Embed(
-                title="Шахта",
-                description=f"Вы слишком часто копаете. Подождите **{wait_seconds} сек.**",
+                title="Mine",
+                description=f"You are mining too fast. Wait **{wait_seconds} sec.**",
                 color=EMBED_COLOR
             )
             embed.set_thumbnail(url=inter.author.display_avatar.url)
@@ -45,38 +45,38 @@ class MineView(disnake.ui.View):
         
         await safe_defer(inter)
         
-        # Выполняем добычу
+        # Run mining action
         user_data = get_user_data(inter.author.id)
-        pickaxe_name = user_data.get("current_pickaxe", "Каменная кирка")
+        pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
         pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
         
         ore_name, amount = get_mine_result(pickaxe_name)
         
-        # Добавляем руду в инвентарь
+        # Add ore to inventory
         await safe_defer(inter)
         inventory = get_user_inventory(inter.author.id)
         inventory[ore_name] = inventory.get(ore_name, 0) + amount
         update_user_inventory(inter.author.id, inventory)
         
-        # Обновляем время добычи
+        # Update mining timestamp
         update_last_mine(inter.author.id)
         
-        # Отправляем результат с кнопками
+        # Send result with buttons
         embed = disnake.Embed(
-            title="Шахта",
-            description=f"{inter.author.mention} нашёл:\n{ORES[ore_name]['emoji']} {ore_name} x{amount}\n\nКирка: {pickaxe_emoji} {pickaxe_name}",
+            title="Mine",
+            description=f"{inter.author.mention} found:\n{ORES[ore_name]['emoji']} {ore_name} x{amount}\n\nPickaxe: {pickaxe_emoji} {pickaxe_name}",
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=inter.author.display_avatar.url)
         
-        # Создаём новый View с кнопками для нового сообщения
+        # Create a fresh view for the new message
         view = MineView(inter.author.id)
         await safe_send(inter, embed=embed, view=view)
     
-    @disnake.ui.button(label="Продать руду", style=disnake.ButtonStyle.success)
+    @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.success)
     async def sell_ores_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
         await safe_defer(inter)
@@ -87,7 +87,7 @@ class MineView(disnake.ui.View):
         total_earned = 0
         sold_items = []
         
-        # Проверяем апгрейд Майнер руды
+        # Check upgrade Ore Miner
         user_data = get_user_data(inter.author.id)
         miner_level = user_data.get("miner_boost_level", 0)
         ore_bonus = 0
@@ -108,8 +108,8 @@ class MineView(disnake.ui.View):
         
         if total_earned == 0:
             embed = disnake.Embed(
-                title="Продажа руды",
-                description="У вас нет руды для продажи!",
+                title="Ore Sale",
+                description="You do not have any ore to sell.",
                 color=EMBED_COLOR
             )
             embed.set_thumbnail(url=inter.author.display_avatar.url)
@@ -122,56 +122,56 @@ class MineView(disnake.ui.View):
         update_stats(inter.author.id, total_earned=total_earned)
         
         embed = disnake.Embed(
-            title="Продажа руды",
-            description="\n".join(sold_items) + f"\n\n**Итого: {total_earned} {CURRENCY}**",
+            title="Ore Sale",
+            description="\n".join(sold_items) + f"\n\n**Total: {total_earned} {CURRENCY}**",
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=inter.author.display_avatar.url)
         
-        # Создаём новый View с кнопками для нового сообщения
+        # Create a fresh view for the new message
         view = MineView(inter.author.id)
         await safe_send(inter, embed=embed, view=view)
 
 
-@bot.slash_command(name="mine", description="Пойти в шахту")
+@bot.slash_command(name="mine", description="Go mining")
 async def mine(ctx: disnake.ApplicationCommandInteraction):
     await safe_defer(ctx)
     
     user_id = ctx.author.id
     user_data = get_user_data(user_id)
     
-    # Проверяем кулдаун
+    # Check cooldown
     can, next_time, cooldown = can_mine(user_id)
     if not can:
         remaining = next_time - datetime.now(timezone.utc)
         wait_seconds = max(1, int(remaining.total_seconds()))
         embed = disnake.Embed(
-            title="Шахта",
-            description=f"Вы слишком часто копаете. Подождите **{wait_seconds} сек.**",
+            title="Mine",
+            description=f"You are mining too fast. Wait **{wait_seconds} sec.**",
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         await safe_send(ctx, embed=embed)
         return
     
-    pickaxe_name = user_data.get("current_pickaxe", "Каменная кирка")
+    pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
     pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     
-    # Выполняем добычу
+    # Run mining action
     ore_name, amount = get_mine_result(pickaxe_name)
     
-    # Добавляем руду в инвентарь
+    # Add ore to inventory
     inventory = get_user_inventory(user_id)
     inventory[ore_name] = inventory.get(ore_name, 0) + amount
     update_user_inventory(user_id, inventory)
     
-    # Обновляем время добычи
+    # Update mining timestamp
     update_last_mine(user_id)
     
-    # Отправляем результат с кнопками
+    # Send result with buttons
     embed = disnake.Embed(
-        title="Шахта",
-        description=f"{ctx.author.mention} нашёл:\n{ORES[ore_name]['emoji']} {ore_name} x{amount}\n\nКирка: {pickaxe_emoji} {pickaxe_name}",
+        title="Mine",
+        description=f"{ctx.author.mention} found:\n{ORES[ore_name]['emoji']} {ore_name} x{amount}\n\nPickaxe: {pickaxe_emoji} {pickaxe_name}",
         color=EMBED_COLOR
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)

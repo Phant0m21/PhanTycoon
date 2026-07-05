@@ -21,6 +21,30 @@ UPGRADE_COLUMNS = {
 }
 
 
+NAME_MIGRATIONS = {
+    "Каменная кирка": "Stone Pickaxe",
+    "Железная кирка": "Iron Pickaxe",
+    "Золотая кирка": "Golden Pickaxe",
+    "Алмазная кирка": "Diamond Pickaxe",
+    "Незеритовая кирка": "Netherite Pickaxe",
+    "Уголь": "Coal",
+    "Медь": "Copper",
+    "Железо": "Iron",
+    "Золото": "Gold",
+    "Алмаз": "Diamond",
+    "Шаурмичная": "Shawarma Stand",
+    "Автомойка": "Car Wash",
+    "Компьютерный клуб": "Gaming Cafe",
+    "Ночной клуб": "Nightclub",
+    "Казино": "Casino",
+    "Энергетик": "Energy Drink",
+    "Витамины": "Vitamins",
+    "Страховка": "Insurance",
+    "Золотая Корона": "Golden Crown",
+    "Личный Джет": "Private Jet",
+}
+
+
 def get_db():
     conn = sqlite3.connect(DB_FILE, timeout=30)
     conn.row_factory = sqlite3.Row
@@ -34,7 +58,7 @@ def init_db():
     cursor.execute("PRAGMA journal_mode = WAL")
     cursor.execute("PRAGMA synchronous = NORMAL")
     
-    # Таблица пользователей
+    # Users table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY,
@@ -50,14 +74,14 @@ def init_db():
             collect_earned INTEGER DEFAULT 0,
             work_count INTEGER DEFAULT 0,
             games_played INTEGER DEFAULT 0,
-            current_pickaxe TEXT DEFAULT 'Каменная кирка',
+            current_pickaxe TEXT DEFAULT 'Stone Pickaxe',
             time_management_level INTEGER DEFAULT 0,
             business_optimization_level INTEGER DEFAULT 0,
             miner_boost_level INTEGER DEFAULT 0
         )
     """)
     
-    # Таблица бизнесов
+    # Businesses table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS businesses (
             user_id TEXT,
@@ -66,7 +90,7 @@ def init_db():
         )
     """)
     
-    # Таблица инвентаря
+    # Inventory table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventory (
             user_id TEXT,
@@ -91,7 +115,7 @@ def init_db():
         "collect_earned": "INTEGER DEFAULT 0",
         "work_count": "INTEGER DEFAULT 0",
         "games_played": "INTEGER DEFAULT 0",
-        "current_pickaxe": "TEXT DEFAULT 'Каменная кирка'",
+        "current_pickaxe": "TEXT DEFAULT 'Stone Pickaxe'",
         "time_management_level": "INTEGER DEFAULT 0",
         "business_optimization_level": "INTEGER DEFAULT 0",
         "miner_boost_level": "INTEGER DEFAULT 0",
@@ -102,6 +126,11 @@ def init_db():
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_businesses_user_id ON businesses(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id)")
+
+    for old_name, new_name in NAME_MIGRATIONS.items():
+        cursor.execute("UPDATE users SET current_pickaxe = ? WHERE current_pickaxe = ?", (new_name, old_name))
+        cursor.execute("UPDATE inventory SET item_name = ? WHERE item_name = ?", (new_name, old_name))
+        cursor.execute("UPDATE businesses SET business_name = ? WHERE business_name = ?", (new_name, old_name))
     
     conn.commit()
     conn.close()
@@ -125,14 +154,14 @@ def get_user_data(user_id):
             INSERT INTO users (user_id, registered_at, current_pickaxe,
                 time_management_level, business_optimization_level, miner_boost_level) 
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (str(user_id), now, "Каменная кирка", 0, 0, 0))
+        """, (str(user_id), now, "Stone Pickaxe", 0, 0, 0))
         conn.commit()
         conn.close()
         return {
             "wallet": 0, "bank": 0, "last_work": None, "last_collect": None, "last_mine": None,
             "registered_at": now, "total_earned": 0, "total_spent": 0,
             "work_earned": 0, "collect_earned": 0, "work_count": 0, "games_played": 0,
-            "current_pickaxe": "Каменная кирка",
+            "current_pickaxe": "Stone Pickaxe",
             "time_management_level": 0,
             "business_optimization_level": 0,
             "miner_boost_level": 0
@@ -152,7 +181,7 @@ def get_user_data(user_id):
         "collect_earned": result[9] if result[9] is not None else 0,
         "work_count": result[10] if result[10] is not None else 0,
         "games_played": result[11] if result[11] is not None else 0,
-        "current_pickaxe": result[12] if result[12] is not None else "Каменная кирка",
+        "current_pickaxe": result[12] if result[12] is not None else "Stone Pickaxe",
         "time_management_level": result[13] if result[13] is not None else 0,
         "business_optimization_level": result[14] if result[14] is not None else 0,
         "miner_boost_level": result[15] if result[15] is not None else 0
@@ -271,7 +300,7 @@ def can_work(user_id):
     if last_work.tzinfo is None:
         last_work = last_work.replace(tzinfo=timezone.utc)
     
-    # Учитываем апгрейд Менеджмент времени
+    # Apply upgrade Time Management
     time_management_level = data.get("time_management_level", 0)
     work_reduction_minutes = 0
     if time_management_level > 0:
@@ -310,10 +339,10 @@ def can_mine(user_id):
     if last_mine.tzinfo is None:
         last_mine = last_mine.replace(tzinfo=timezone.utc)
     
-    pickaxe_name = data.get("current_pickaxe", "Каменная кирка")
+    pickaxe_name = data.get("current_pickaxe", "Stone Pickaxe")
     base_cooldown = PICKAXES.get(pickaxe_name, {}).get("cooldown", 4.2)
     
-    # Учитываем апгрейд Менеджмент времени
+    # Apply upgrade Time Management
     time_management_level = data.get("time_management_level", 0)
     mine_reduction = 0
     if time_management_level > 0:
@@ -349,7 +378,7 @@ def get_mine_result(pickaxe_name):
     pickaxe = PICKAXES[pickaxe_name]
     available_ores = pickaxe["ores"]
     
-    # Выбираем руду на основе шансов
+    # Roll ore by chances
     roll = random.random() * 100
     cumulative = 0
     selected_ore = None
@@ -363,9 +392,9 @@ def get_mine_result(pickaxe_name):
             break
     
     if selected_ore is None:
-        selected_ore = available_ores[-1] if available_ores else "Уголь"
+        selected_ore = available_ores[-1] if available_ores else "Coal"
     
-    # Количество руды
+    # Ore quantity
     amount = random.randint(pickaxe["amount_min"], pickaxe["amount_max"])
     
     return selected_ore, amount
