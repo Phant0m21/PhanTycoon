@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== ПРОФИЛЬ ====================
 
@@ -167,7 +168,7 @@ class ProfileView(disnake.ui.View):
         self.add_item(ProfileButton("Профиль", "profile", disnake.ButtonStyle.primary if self.mode == "profile" else disnake.ButtonStyle.secondary))
         self.add_item(ProfileButton("Статистика", "stats", disnake.ButtonStyle.primary if self.mode == "stats" else disnake.ButtonStyle.secondary))
         
-        await inter.response.edit_message(embed=embed, view=self)
+        await safe_edit(inter, embed=embed, view=self)
     
     async def on_timeout(self):
         for item in self.children:
@@ -187,9 +188,10 @@ class ProfileButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
+        await safe_defer(inter, with_message=False)
         self.view.mode = self.mode
         await self.view.update_embed(inter)
 
@@ -283,5 +285,5 @@ async def profile(
     
     view = ProfileView(ctx.author.id, target.id, mode="profile")
     
-    await ctx.response.defer()
-    view.message = await ctx.followup.send(embed=embed, view=view)
+    await safe_defer(ctx)
+    view.message = await safe_send(ctx, embed=embed, view=view)

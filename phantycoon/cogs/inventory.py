@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== ИНВЕНТАРЬ ====================
 
@@ -38,15 +39,16 @@ class InventorySelect(disnake.ui.Select):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
+        await safe_defer(inter, ephemeral=True)
         item_name = inter.values[0]
         inventory = get_user_inventory(self.user_id)
         quantity = inventory.get(item_name, 0)
         
         if quantity <= 0:
-            await inter.response.send_message("❌ У вас нет этого предмета!", ephemeral=True)
+            await safe_send(inter, "❌ У вас нет этого предмета!", ephemeral=True)
             return
         
         shop = load_shop()
@@ -112,7 +114,7 @@ class InventorySelect(disnake.ui.Select):
                 custom_id=f"sell_{item_name}"
             ))
         
-        await inter.response.send_message(embed=embed, view=view, ephemeral=True)
+        await safe_send(inter, embed=embed, view=view, ephemeral=True)
 
 
 @bot.slash_command(name="inventory", description="Показать инвентарь")
@@ -130,8 +132,8 @@ async def inventory(
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=target.display_avatar.url)
-        await ctx.response.defer()
-        await ctx.followup.send(embed=embed)
+        await safe_defer(ctx)
+        await safe_send(ctx, embed=embed)
         return
     
     items_list = []
@@ -154,11 +156,11 @@ async def inventory(
     if target.id == ctx.author.id:
         view = disnake.ui.View()
         view.add_item(InventorySelect(target.id, inventory, ctx.author.id))
-        await ctx.response.defer()
-        await ctx.followup.send(embed=embed, view=view)
+        await safe_defer(ctx)
+        await safe_send(ctx, embed=embed, view=view)
     else:
-        await ctx.response.defer()
-        await ctx.followup.send(embed=embed)
+        await safe_defer(ctx)
+        await safe_send(ctx, embed=embed)
 
 
 # ==================== ОБРАБОТЧИКИ КНОПОК ИНВЕНТАРЯ ====================
@@ -168,13 +170,14 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
     if not inter.data.custom_id.startswith(("use_", "sell_")):
         return
     
+    await safe_defer(inter, ephemeral=True)
     action, item_name = inter.data.custom_id.split("_", 1)
     
     inventory = get_user_inventory(inter.author.id)
     quantity = inventory.get(item_name, 0)
     
     if quantity <= 0:
-        await inter.response.send_message("❌ У вас нет этого предмета!", ephemeral=True)
+        await safe_send(inter, "❌ У вас нет этого предмета!", ephemeral=True)
         return
     
     shop = load_shop()
@@ -190,7 +193,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                 description=f"Вы надели **{item_name}**!",
                 color=EMBED_COLOR
             )
-            await inter.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             return
         
         if item_name == "Энергетик":
@@ -212,7 +215,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                 description="Кулдаун `/work` сброшен! Вы можете работать снова.",
                 color=EMBED_COLOR
             )
-            await inter.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             
         elif item_name == "Витамины":
             if inter.author.id in active_buffs:
@@ -230,7 +233,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                 description="Эффект витаминов активирован! Следующие 3 работы дадут +45% к заработку.",
                 color=EMBED_COLOR
             )
-            await inter.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             
         elif item_name == "Страховка":
             embed = disnake.Embed(
@@ -238,10 +241,10 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                 description="Страховка используется автоматически при проигрыше в мини-играх и возвращает 30% от ставки.",
                 color=EMBED_COLOR
             )
-            await inter.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             
         else:
-            await inter.response.send_message("❌ Этот предмет нельзя использовать", ephemeral=True)
+            await safe_send(inter, "❌ Этот предмет нельзя использовать", ephemeral=True)
             
     elif action == "sell":
         price = 0
@@ -273,7 +276,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                     break
         
         if price == 0:
-            await inter.response.send_message("❌ Этот предмет нельзя продать", ephemeral=True)
+            await safe_send(inter, "❌ Этот предмет нельзя продать", ephemeral=True)
             return
         
         # Продаём один предмет
@@ -291,4 +294,4 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             description=f"Вы продали {item_name} за {price} {CURRENCY}",
             color=EMBED_COLOR
         )
-        await inter.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(inter, embed=embed, ephemeral=True)

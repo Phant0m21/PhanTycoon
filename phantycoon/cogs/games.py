@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== COINFLIP ====================
 
@@ -31,7 +32,7 @@ async def coinflip(
             description=f"Недостаточно денег в кошельке!",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     update_user_wallet(user_id, user_data["wallet"] - bet)
@@ -79,4 +80,4 @@ async def coinflip(
         update_stats(user_id, total_spent=bet, games_played=1)
     
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
-    await ctx.response.send_message(embed=embed)
+    await safe_send(ctx, embed=embed)

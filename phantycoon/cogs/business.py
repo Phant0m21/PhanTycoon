@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== КОЛЛЕКТ ====================
 
@@ -26,10 +27,10 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
 
-    await ctx.response.defer()
+    await safe_defer(ctx)
     
     user_businesses = get_user_businesses(ctx.author.id)
     shop = load_shop()
@@ -60,7 +61,7 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        await ctx.followup.send(embed=embed)
+        await safe_send(ctx, embed=embed)
         return
     
     new_wallet = user_data["wallet"] + total_income
@@ -85,4 +86,4 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-    await ctx.followup.send(embed=embed)
+    await safe_send(ctx, embed=embed)

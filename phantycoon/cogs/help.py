@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== ПОМОЩЬ ====================
 
@@ -28,7 +29,7 @@ class HelpSelect(disnake.ui.Select):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
         category = inter.values[0]
@@ -72,7 +73,7 @@ class HelpSelect(disnake.ui.Select):
             embed.add_field(name="/set_money", value="Установить точную сумму", inline=False)
             embed.add_field(name="/restart", value="Перезапустить бота (только для разработчика)", inline=False)
         
-        await inter.response.edit_message(embed=embed, view=self.view)
+        await safe_edit(inter, embed=embed, view=self.view)
 
 
 class HelpView(disnake.ui.View):
@@ -89,5 +90,5 @@ async def help(ctx: disnake.ApplicationCommandInteraction):
         color=EMBED_COLOR
     )
     view = HelpView(ctx.author.id)
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed, view=view)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed, view=view)

@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== MINE ====================
 
@@ -24,9 +25,10 @@ class MineView(disnake.ui.View):
     @disnake.ui.button(label="Копать снова", style=disnake.ButtonStyle.primary)
     async def mine_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
+        await safe_defer(inter)
         # Проверяем кулдаун
         can, next_time, cooldown = can_mine(inter.author.id)
         if not can:
@@ -38,10 +40,10 @@ class MineView(disnake.ui.View):
                 color=EMBED_COLOR
             )
             embed.set_thumbnail(url=inter.author.display_avatar.url)
-            await inter.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             return
         
-        await inter.response.defer()
+        await safe_defer(inter)
         
         # Выполняем добычу
         user_data = get_user_data(inter.author.id)
@@ -51,6 +53,7 @@ class MineView(disnake.ui.View):
         ore_name, amount = get_mine_result(pickaxe_name)
         
         # Добавляем руду в инвентарь
+        await safe_defer(inter)
         inventory = get_user_inventory(inter.author.id)
         inventory[ore_name] = inventory.get(ore_name, 0) + amount
         update_user_inventory(inter.author.id, inventory)
@@ -68,16 +71,17 @@ class MineView(disnake.ui.View):
         
         # Создаём новый View с кнопками для нового сообщения
         view = MineView(inter.author.id)
-        await inter.followup.send(embed=embed, view=view)
+        await safe_send(inter, embed=embed, view=view)
     
     @disnake.ui.button(label="Продать руду", style=disnake.ButtonStyle.success)
     async def sell_ores_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
-        await inter.response.defer()
+        await safe_defer(inter)
         
+        await safe_defer(inter)
         inventory = get_user_inventory(inter.author.id)
         
         total_earned = 0
@@ -109,7 +113,7 @@ class MineView(disnake.ui.View):
                 color=EMBED_COLOR
             )
             embed.set_thumbnail(url=inter.author.display_avatar.url)
-            await inter.followup.send(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             return
         
         update_user_inventory(inter.author.id, inventory)
@@ -126,12 +130,12 @@ class MineView(disnake.ui.View):
         
         # Создаём новый View с кнопками для нового сообщения
         view = MineView(inter.author.id)
-        await inter.followup.send(embed=embed, view=view)
+        await safe_send(inter, embed=embed, view=view)
 
 
 @bot.slash_command(name="mine", description="Пойти в шахту")
 async def mine(ctx: disnake.ApplicationCommandInteraction):
-    await ctx.response.defer()
+    await safe_defer(ctx)
     
     user_id = ctx.author.id
     user_data = get_user_data(user_id)
@@ -147,7 +151,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        await ctx.followup.send(embed=embed)
+        await safe_send(ctx, embed=embed)
         return
     
     pickaxe_name = user_data.get("current_pickaxe", "Каменная кирка")
@@ -173,4 +177,4 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
     view = MineView(ctx.author.id)
-    await ctx.followup.send(embed=embed, view=view)
+    await safe_send(ctx, embed=embed, view=view)

@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 TOP_SORT_COLUMNS = {
     "balance",
@@ -84,9 +85,10 @@ class TopSelect(disnake.ui.Select):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
+        await safe_defer(inter, with_message=False)
         self.sort_by = inter.values[0]
         self.view.sort_by = self.sort_by
         self.view.page = 1
@@ -147,7 +149,7 @@ class TopView(disnake.ui.View):
                 description="Нет пользователей",
                 color=EMBED_COLOR
             )
-            await inter.response.edit_message(embed=embed, view=self)
+            await safe_edit(inter, embed=embed, view=self)
             return
         
         items_per_page = 10
@@ -205,7 +207,7 @@ class TopView(disnake.ui.View):
         if self.page < total_pages:
             self.add_item(TopPageButton("▶", "next", self.page))
         
-        await inter.response.edit_message(embed=embed, view=self)
+        await safe_edit(inter, embed=embed, view=self)
     
     async def on_timeout(self):
         for item in self.children:
@@ -227,8 +229,9 @@ class TopToggleButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
+        await safe_defer(inter, with_message=False)
         new_mode = "server" if self.mode == "global" else "global"
         self.view.mode = new_mode
         self.view.page = 1
@@ -243,8 +246,9 @@ class TopPageButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
+        await safe_defer(inter, with_message=False)
         self.view.page = self.current_page - 1 if self.direction == "prev" else self.current_page + 1
         await self.view.update_embed(inter)
 
@@ -254,7 +258,7 @@ async def top(
     ctx: disnake.ApplicationCommandInteraction,
     page: int = commands.Param(default=1, ge=1, description="Номер страницы")
 ):
-    await ctx.response.defer()
+    await safe_defer(ctx)
     
     conn = get_db()
     cursor = conn.cursor()
@@ -268,7 +272,7 @@ async def top(
             description="Нет пользователей",
             color=EMBED_COLOR
         )
-        await ctx.followup.send(embed=embed)
+        await safe_send(ctx, embed=embed)
         return
     
     items_per_page = 10
@@ -307,7 +311,7 @@ async def top(
     if page < total_pages:
         view.add_item(TopPageButton("▶", "next", page))
     
-    view.message = await ctx.followup.send(embed=embed, view=view)
+    view.message = await safe_send(ctx, embed=embed, view=view)
 
 
 
@@ -341,8 +345,8 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
     )
     embed.set_footer(text=f"ID: {bot.user.id}")
     
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed)
 
 
 @bot.slash_command(name="restart", description="Перезапустить бота (только для разработчика)")
@@ -353,7 +357,7 @@ async def restart(ctx: disnake.ApplicationCommandInteraction):
             description="Эта команда доступна только разработчику бота!",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     embed = disnake.Embed(
@@ -361,7 +365,7 @@ async def restart(ctx: disnake.ApplicationCommandInteraction):
         description="Бот перезапускается...",
         color=EMBED_COLOR
     )
-    await ctx.response.send_message(embed=embed, ephemeral=True)
+    await safe_send(ctx, embed=embed, ephemeral=True)
     
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
@@ -378,7 +382,7 @@ async def add_money(
             description="Эта команда доступна только разработчику бота!",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     user_data = get_user_data(user.id)
@@ -398,8 +402,8 @@ async def add_money(
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed)
 
 
 @bot.slash_command(name="remove_money", description="Забрать деньги у пользователя (только для разработчика)")
@@ -414,7 +418,7 @@ async def remove_money(
             description="Эта команда доступна только разработчику бота!",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     user_data = get_user_data(user.id)
@@ -425,7 +429,7 @@ async def remove_money(
             description=f"Недостаточно денег! Баланс: {user_data['wallet']} {CURRENCY}",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     new_wallet = user_data["wallet"] - amount
@@ -443,8 +447,8 @@ async def remove_money(
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed)
 
 
 @bot.slash_command(name="set_money", description="Установить точную сумму денег пользователю (только для разработчика)")
@@ -459,7 +463,7 @@ async def set_money(
             description="Эта команда доступна только разработчику бота!",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     user_data = get_user_data(user.id)
@@ -484,5 +488,5 @@ async def set_money(
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed)

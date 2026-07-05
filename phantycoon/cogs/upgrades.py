@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== SHOP UPGRADES ====================
 
@@ -109,10 +110,10 @@ class UpgradeButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
-        await inter.response.defer()
+        await safe_defer(inter)
         
         user_data = get_user_data(inter.author.id)
         current_level = user_data.get(f"{self.upgrade_id}_level", 0)
@@ -124,7 +125,7 @@ class UpgradeButton(disnake.ui.Button):
                 description="У вас уже максимальный уровень этого улучшения!",
                 color=EMBED_COLOR
             )
-            await inter.followup.send(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             return
         
         next_level = upgrade_data["levels"][current_level]
@@ -136,7 +137,7 @@ class UpgradeButton(disnake.ui.Button):
                 description=f"Недостаточно денег! Нужно: {price} {CURRENCY}",
                 color=EMBED_COLOR
             )
-            await inter.followup.send(embed=embed, ephemeral=True)
+            await safe_send(inter, embed=embed, ephemeral=True)
             return
         
         # Списываем деньги
@@ -152,7 +153,7 @@ class UpgradeButton(disnake.ui.Button):
             description=f"{upgrade_data['name']} повышен до **{new_level} уровня** за {price} {CURRENCY}",
             color=EMBED_COLOR
         )
-        await inter.followup.send(embed=embed, ephemeral=True)
+        await safe_send(inter, embed=embed, ephemeral=True)
         
         # Обновляем основное сообщение
         await self.view.update_embed(inter)
@@ -160,7 +161,7 @@ class UpgradeButton(disnake.ui.Button):
 
 @bot.slash_command(name="shop_upgrades", description="Купить пассивные улучшения")
 async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
-    await ctx.response.defer()
+    await safe_defer(ctx)
     
     user_data = get_user_data(ctx.author.id)
     
@@ -198,4 +199,4 @@ async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
     view = UpgradesView(ctx.author.id)
-    view.message = await ctx.followup.send(embed=embed, view=view)
+    view.message = await safe_send(ctx, embed=embed, view=view)

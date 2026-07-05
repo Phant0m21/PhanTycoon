@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
+from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 # ==================== МАГАЗИН ====================
 
@@ -29,9 +30,10 @@ class ShopSelect(disnake.ui.Select):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await inter.response.send_message("❌ Это не ваше меню!", ephemeral=True)
+            await safe_send(inter, "❌ Это не ваше меню!", ephemeral=True)
             return
         
+        await safe_defer(inter, with_message=False)
         category = inter.values[0]
         shop = load_shop()
         items = shop.get(category, {})
@@ -98,7 +100,7 @@ class ShopSelect(disnake.ui.Select):
                 )
         
         embed.set_footer(text="Для покупки используйте `/buy`")
-        await inter.response.edit_message(embed=embed, view=self.view)
+        await safe_edit(inter, embed=embed, view=self.view)
 
 
 class ShopView(disnake.ui.View):
@@ -115,8 +117,8 @@ async def shop(ctx: disnake.ApplicationCommandInteraction):
         color=EMBED_COLOR
     )
     view = ShopView(ctx.author.id)
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed, view=view)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed, view=view)
 
 
 @bot.slash_command(name="buy", description="Купить товар")
@@ -145,7 +147,7 @@ async def buy(
             description="Товар не найден! Используйте /shop для просмотра товаров",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     item_data = shop[found_category][found_item]
@@ -158,7 +160,7 @@ async def buy(
             description=f"Недостаточно денег! Нужно: {total_price} {CURRENCY}",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
 
     if found_category in {"business", "pickaxes"} and quantity != 1:
@@ -167,7 +169,7 @@ async def buy(
             description="Этот товар можно купить только в количестве 1 шт.",
             color=EMBED_COLOR
         )
-        await ctx.response.send_message(embed=embed, ephemeral=True)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     if found_category == "business":
@@ -178,7 +180,7 @@ async def buy(
                 description="У вас уже есть этот бизнес!",
                 color=EMBED_COLOR
             )
-            await ctx.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(ctx, embed=embed, ephemeral=True)
             return
         
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
@@ -226,7 +228,7 @@ async def buy(
                 description="У вас уже есть эта кирка!",
                 color=EMBED_COLOR
             )
-            await ctx.response.send_message(embed=embed, ephemeral=True)
+            await safe_send(ctx, embed=embed, ephemeral=True)
             return
         
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
@@ -268,5 +270,5 @@ async def buy(
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-    await ctx.response.defer()
-    await ctx.followup.send(embed=embed)
+    await safe_defer(ctx)
+    await safe_send(ctx, embed=embed)
