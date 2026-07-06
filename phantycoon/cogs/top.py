@@ -35,43 +35,43 @@ class TopSelect(disnake.ui.Select):
         
         options = [
             disnake.SelectOption(
-                label="💰 Net worth",
+                label="Net worth",
                 value="balance",
                 description="Current balance",
                 emoji="💰"
             ),
             disnake.SelectOption(
-                label="💵 Total earned",
+                label="Total earned",
                 value="total_earned",
                 description="Total earned",
                 emoji="💵"
             ),
             disnake.SelectOption(
-                label="💸 Total spent",
+                label="Total spent",
                 value="total_spent",
                 description="Total spent",
                 emoji="💸"
             ),
             disnake.SelectOption(
-                label="🛠 Earned from jobs",
+                label="Earned from jobs",
                 value="work_earned",
                 description="Earned through /work",
                 emoji="🛠"
             ),
             disnake.SelectOption(
-                label="🏢 Earned from businesses",
+                label="Earned from businesses",
                 value="collect_earned",
                 description="Earned from businesses",
                 emoji="🏢"
             ),
             disnake.SelectOption(
-                label="📊 Jobs completed",
+                label="Jobs completed",
                 value="work_count",
                 description="Jobs completed",
                 emoji="📊"
             ),
             disnake.SelectOption(
-                label="🎮 Minigames played",
+                label="Minigames played",
                 value="games_played",
                 description="Minigames played",
                 emoji="🎮"
@@ -345,7 +345,6 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
     )
     embed.set_footer(text=f"ID: {bot.user.id}")
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)
 
 

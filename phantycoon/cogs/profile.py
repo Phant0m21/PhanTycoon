@@ -76,7 +76,7 @@ class ProfileView(disnake.ui.View):
             miner_level = user_data.get("miner_boost_level", 0)
             
             embed.add_field(
-                name="⏱Time Management",
+                name="Time Management",
                 value=f"Level {time_level}/{UPGRADES['time_management']['max_level']}",
                 inline=True
             )
@@ -242,17 +242,17 @@ async def profile(
     miner_level = user_data.get("miner_boost_level", 0)
     
     embed.add_field(
-        name="⏱️ Time Management",
+        name="Time Management",
         value=f"Level {time_level}/{UPGRADES['time_management']['max_level']}",
         inline=True
     )
     embed.add_field(
-        name="🏢 Business Optimization",
+        name="Business Optimization",
         value=f"Level {business_level}/{UPGRADES['business_optimization']['max_level']}",
         inline=True
     )
     embed.add_field(
-        name="⛏️ Ore Miner",
+        name="Ore Miner",
         value=f"Level {miner_level}/{UPGRADES['miner_boost']['max_level']}",
         inline=True
     )

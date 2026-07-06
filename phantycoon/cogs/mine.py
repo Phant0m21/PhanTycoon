@@ -43,8 +43,6 @@ class MineView(disnake.ui.View):
             await safe_send(inter, embed=embed, ephemeral=True)
             return
         
-        await safe_defer(inter)
-        
         # Run mining action
         user_data = get_user_data(inter.author.id)
         pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
@@ -53,7 +51,6 @@ class MineView(disnake.ui.View):
         ore_name, amount = get_mine_result(pickaxe_name)
         
         # Add ore to inventory
-        await safe_defer(inter)
         inventory = get_user_inventory(inter.author.id)
         inventory[ore_name] = inventory.get(ore_name, 0) + amount
         update_user_inventory(inter.author.id, inventory)
@@ -78,8 +75,6 @@ class MineView(disnake.ui.View):
         if inter.author.id != self.author_id:
             await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
-        
-        await safe_defer(inter)
         
         await safe_defer(inter)
         inventory = get_user_inventory(inter.author.id)
@@ -151,7 +146,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        await safe_send(ctx, embed=embed)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")

@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
-from phantycoon.interactions import safe_defer, safe_send
+from phantycoon.interactions import safe_send
 
 # ==================== EVENTS ====================
 
@@ -22,11 +22,6 @@ async def on_ready():
     print(f"Bot {bot.user} ready!")
     print(f"Currency: {CURRENCY}")
     print(f"Started: {BOT_START_TIME.strftime('%d.%m.%Y %H:%M:%S')}")
-
-
-@bot.listen("on_application_command")
-async def auto_defer_application_commands(ctx: disnake.ApplicationCommandInteraction):
-    await safe_defer(ctx)
 
 
 @bot.event

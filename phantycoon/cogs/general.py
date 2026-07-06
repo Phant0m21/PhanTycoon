@@ -226,5 +226,4 @@ async def withdraw(
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)

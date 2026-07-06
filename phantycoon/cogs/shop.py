@@ -271,4 +271,4 @@ async def buy(
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-await safe_send(ctx, embed=embed)
+    await safe_send(ctx, embed=embed)
