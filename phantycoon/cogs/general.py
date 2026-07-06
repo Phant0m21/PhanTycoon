@@ -22,6 +22,7 @@ async def balance(
     ctx: disnake.ApplicationCommandInteraction,
     user: disnake.User = commands.Param(default=None, description="User")
 ):
+    await safe_defer(ctx)
     target = user or ctx.author
     user_data = get_user_data(target.id)
     
@@ -48,12 +49,12 @@ async def balance(
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)
 
 
 @bot.slash_command(name="work", description="Earn cash")
 async def work(ctx: disnake.ApplicationCommandInteraction):
+    await safe_defer(ctx)
     can, next_time = can_work(ctx.author.id)
     if not can:
         remaining = next_time - datetime.now(timezone.utc)
@@ -93,7 +94,6 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)
 
 
@@ -102,6 +102,7 @@ async def deposit(
     ctx: disnake.ApplicationCommandInteraction,
     amount: str = commands.Param(description="Amount or 'all'")
 ):
+    await safe_defer(ctx)
     user_data = get_user_data(ctx.author.id)
     
     if amount.lower() == "all":
@@ -159,7 +160,6 @@ async def deposit(
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)
 
 
@@ -168,6 +168,7 @@ async def withdraw(
     ctx: disnake.ApplicationCommandInteraction,
     amount: str = commands.Param(description="Amount or 'all'")
 ):
+    await safe_defer(ctx)
     user_data = get_user_data(ctx.author.id)
     
     if amount.lower() == "all":

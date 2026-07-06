@@ -127,6 +127,7 @@ async def buy(
     name: str = commands.Param(description="Item name"),
     quantity: int = commands.Param(default=1, gt=0, description="Quantity")
 ):
+    await safe_defer(ctx)
     shop = load_shop()
     
     found_item = None
@@ -270,5 +271,4 @@ async def buy(
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
     
-    await safe_defer(ctx)
-    await safe_send(ctx, embed=embed)
+await safe_send(ctx, embed=embed)

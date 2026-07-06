@@ -23,6 +23,7 @@ async def coinflip(
     bet: int = commands.Param(gt=0, description="Bet amount"),
     choice: str = commands.Param(choices=["Heads", "Tails"], description="Your pick")
 ):
+    await safe_defer(ctx)
     user_id = ctx.author.id
     
     user_data = get_user_data(user_id)

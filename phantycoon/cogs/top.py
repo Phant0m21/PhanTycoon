@@ -351,6 +351,7 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
 
 @bot.slash_command(name="restart", description="Restart the bot (developer only)")
 async def restart(ctx: disnake.ApplicationCommandInteraction):
+    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -376,6 +377,7 @@ async def add_money(
     amount: int = commands.Param(gt=0, description="Amount"),
     user: disnake.User = commands.Param(description="User")
 ):
+    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -402,7 +404,6 @@ async def add_money(
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)
 
 
@@ -412,6 +413,7 @@ async def remove_money(
     amount: int = commands.Param(gt=0, description="Amount"),
     user: disnake.User = commands.Param(description="User")
 ):
+    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -447,7 +449,6 @@ async def remove_money(
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)
 
 
@@ -457,6 +458,7 @@ async def set_money(
     amount: int = commands.Param(ge=0, description="Amount (0 to reset)"),
     user: disnake.User = commands.Param(description="User")
 ):
+    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
