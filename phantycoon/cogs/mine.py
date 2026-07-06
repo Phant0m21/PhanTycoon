@@ -28,7 +28,6 @@ class MineView(disnake.ui.View):
             await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
-        await safe_defer(inter)
         # Check cooldown
         can, next_time, cooldown = can_mine(inter.author.id)
         if not can:
@@ -43,6 +42,7 @@ class MineView(disnake.ui.View):
             await safe_send(inter, embed=embed, ephemeral=True)
             return
         
+        await safe_defer(inter)
         # Run mining action
         user_data = get_user_data(inter.author.id)
         pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
@@ -76,7 +76,6 @@ class MineView(disnake.ui.View):
             await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
-        await safe_defer(inter)
         inventory = get_user_inventory(inter.author.id)
         
         total_earned = 0
@@ -111,6 +110,7 @@ class MineView(disnake.ui.View):
             await safe_send(inter, embed=embed, ephemeral=True)
             return
         
+        await safe_defer(inter)
         update_user_inventory(inter.author.id, inventory)
         user_data = get_user_data(inter.author.id)
         update_user_wallet(inter.author.id, user_data["wallet"] + total_earned)
@@ -130,8 +130,6 @@ class MineView(disnake.ui.View):
 
 @bot.slash_command(name="mine", description="Go mining")
 async def mine(ctx: disnake.ApplicationCommandInteraction):
-    await safe_defer(ctx)
-    
     user_id = ctx.author.id
     user_data = get_user_data(user_id)
     
@@ -149,6 +147,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
     pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     

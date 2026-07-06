@@ -23,7 +23,6 @@ async def coinflip(
     bet: int = commands.Param(gt=0, description="Bet amount"),
     choice: str = commands.Param(choices=["Heads", "Tails"], description="Your pick")
 ):
-    await safe_defer(ctx)
     user_id = ctx.author.id
     
     user_data = get_user_data(user_id)
@@ -36,6 +35,7 @@ async def coinflip(
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     update_user_wallet(user_id, user_data["wallet"] - bet)
     
     result = random.choice(["Heads", "Tails"])

@@ -54,11 +54,8 @@ async def balance(
 
 @bot.slash_command(name="work", description="Earn cash")
 async def work(ctx: disnake.ApplicationCommandInteraction):
-    await safe_defer(ctx)
     can, next_time = can_work(ctx.author.id)
     if not can:
-        remaining = next_time - datetime.now(timezone.utc)
-        wait_minutes = max(1, int(remaining.total_seconds() / 60))
         embed = disnake.Embed(
             title="Work is on cooldown",
             description=f"You already worked. Next shift is available <t:{int(next_time.timestamp())}:R>",
@@ -68,6 +65,7 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
 
+    await safe_defer(ctx)
     earnings = random.randint(WORK_MIN, WORK_MAX)
     
     # Vitamin boost check
@@ -102,7 +100,6 @@ async def deposit(
     ctx: disnake.ApplicationCommandInteraction,
     amount: str = commands.Param(description="Amount or 'all'")
 ):
-    await safe_defer(ctx)
     user_data = get_user_data(ctx.author.id)
     
     if amount.lower() == "all":
@@ -137,6 +134,7 @@ async def deposit(
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     new_wallet = user_data["wallet"] - amount_to_deposit
     new_bank = user_data["bank"] + amount_to_deposit
     
@@ -168,7 +166,6 @@ async def withdraw(
     ctx: disnake.ApplicationCommandInteraction,
     amount: str = commands.Param(description="Amount or 'all'")
 ):
-    await safe_defer(ctx)
     user_data = get_user_data(ctx.author.id)
     
     if amount.lower() == "all":
@@ -203,6 +200,7 @@ async def withdraw(
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     new_wallet = user_data["wallet"] + amount_to_withdraw
     new_bank = user_data["bank"] - amount_to_withdraw
     

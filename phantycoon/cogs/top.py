@@ -350,7 +350,6 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
 
 @bot.slash_command(name="restart", description="Restart the bot (developer only)")
 async def restart(ctx: disnake.ApplicationCommandInteraction):
-    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -376,7 +375,6 @@ async def add_money(
     amount: int = commands.Param(gt=0, description="Amount"),
     user: disnake.User = commands.Param(description="User")
 ):
-    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -386,6 +384,7 @@ async def add_money(
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     user_data = get_user_data(user.id)
     new_wallet = user_data["wallet"] + amount
     update_user_wallet(user.id, new_wallet)
@@ -412,7 +411,6 @@ async def remove_money(
     amount: int = commands.Param(gt=0, description="Amount"),
     user: disnake.User = commands.Param(description="User")
 ):
-    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -433,6 +431,7 @@ async def remove_money(
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     new_wallet = user_data["wallet"] - amount
     update_user_wallet(user.id, new_wallet)
     
@@ -457,7 +456,6 @@ async def set_money(
     amount: int = commands.Param(ge=0, description="Amount (0 to reset)"),
     user: disnake.User = commands.Param(description="User")
 ):
-    await safe_defer(ctx)
     if ctx.author.id != DEV_ID:
         embed = disnake.Embed(
             title="Error",
@@ -467,6 +465,7 @@ async def set_money(
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     user_data = get_user_data(user.id)
     old_wallet = user_data["wallet"]
     
@@ -489,5 +488,4 @@ async def set_money(
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    await safe_defer(ctx)
     await safe_send(ctx, embed=embed)

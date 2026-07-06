@@ -127,7 +127,6 @@ async def buy(
     name: str = commands.Param(description="Item name"),
     quantity: int = commands.Param(default=1, gt=0, description="Quantity")
 ):
-    await safe_defer(ctx)
     shop = load_shop()
     
     found_item = None
@@ -184,6 +183,7 @@ async def buy(
             await safe_send(ctx, embed=embed, ephemeral=True)
             return
         
+        await safe_defer(ctx)
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
         update_stats(ctx.author.id, total_spent=total_price)
         add_business(ctx.author.id, found_item)
@@ -201,6 +201,7 @@ async def buy(
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
     elif found_category == "consumables":
+        await safe_defer(ctx)
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
         update_stats(ctx.author.id, total_spent=total_price)
 
@@ -232,6 +233,7 @@ async def buy(
             await safe_send(ctx, embed=embed, ephemeral=True)
             return
         
+        await safe_defer(ctx)
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
         update_stats(ctx.author.id, total_spent=total_price)
 
@@ -252,6 +254,7 @@ async def buy(
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
     else:  # other
+        await safe_defer(ctx)
         update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
         update_stats(ctx.author.id, total_spent=total_price)
 

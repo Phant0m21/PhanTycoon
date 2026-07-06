@@ -19,7 +19,6 @@ from phantycoon.interactions import safe_defer, safe_edit, safe_send
 
 @bot.slash_command(name="collect", description="Collect business income (every 6 hours)")
 async def collect(ctx: disnake.ApplicationCommandInteraction):
-    await safe_defer(ctx)
     can, next_time = can_collect(ctx.author.id)
     if not can:
         embed = disnake.Embed(
@@ -60,9 +59,10 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        await safe_send(ctx, embed=embed)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    await safe_defer(ctx)
     new_wallet = user_data["wallet"] + total_income
     update_user_wallet(ctx.author.id, new_wallet)
     update_last_collect(ctx.author.id)

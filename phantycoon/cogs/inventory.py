@@ -132,8 +132,7 @@ async def inventory(
             color=EMBED_COLOR
         )
         embed.set_thumbnail(url=target.display_avatar.url)
-        await safe_defer(ctx)
-        await safe_send(ctx, embed=embed)
+        await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
     items_list = []
@@ -145,6 +144,16 @@ async def inventory(
                 items_list.append(f"{PICKAXES[item_name]['emoji']} {item_name} x{quantity}")
             else:
                 items_list.append(f"{item_name} x{quantity}")
+    
+    if not items_list:
+        embed = disnake.Embed(
+            title=f"Inventory {target.name}",
+            description="Inventory is empty",
+            color=EMBED_COLOR
+        )
+        embed.set_thumbnail(url=target.display_avatar.url)
+        await safe_send(ctx, embed=embed, ephemeral=True)
+        return
     
     embed = disnake.Embed(
         title=f"Inventory {target.name}",

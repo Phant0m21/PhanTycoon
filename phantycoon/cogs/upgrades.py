@@ -113,8 +113,6 @@ class UpgradeButton(disnake.ui.Button):
             await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
             return
         
-        await safe_defer(inter)
-        
         user_data = get_user_data(inter.author.id)
         current_level = user_data.get(f"{self.upgrade_id}_level", 0)
         upgrade_data = UPGRADES[self.upgrade_id]
@@ -140,6 +138,7 @@ class UpgradeButton(disnake.ui.Button):
             await safe_send(inter, embed=embed, ephemeral=True)
             return
         
+        await safe_defer(inter, ephemeral=True)
         # Charge wallet
         new_wallet = user_data["wallet"] - price
         update_user_wallet(inter.author.id, new_wallet)
