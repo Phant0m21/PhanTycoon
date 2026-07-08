@@ -25,27 +25,15 @@ async def balance(
     await safe_defer(ctx)
     target = user or ctx.author
     user_data = get_user_data(target.id)
-    
-    total = user_data["wallet"] + user_data["bank"]
 
     embed = disnake.Embed(
         title=f"Balance - {target.name}",
         color=EMBED_COLOR
     )
     embed.add_field(
-        name="Total",
-        value=f"```\n{total}\n```",
-        inline=False
-    )
-    embed.add_field(
-        name="Wallet",
+        name="Balance",
         value=f"```\n{user_data['wallet']}\n```",
-        inline=True
-    )
-    embed.add_field(
-        name="Bank",
-        value=f"```\n{user_data['bank']}\n```",
-        inline=True
+        inline=False
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     
@@ -80,6 +68,10 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
                 del active_buffs[ctx.author.id]
     
     user_data = get_user_data(ctx.author.id)
+    prestige_income_multiplier = get_prestige_income_multiplier(user_data)
+    if prestige_income_multiplier > 1:
+        earnings = int(earnings * prestige_income_multiplier)
+
     new_wallet = user_data["wallet"] + earnings
     update_user_wallet(ctx.author.id, new_wallet)
     update_last_work(ctx.author.id)
@@ -95,133 +87,3 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="deposit", description="Deposit cash into the bank")
-async def deposit(
-    ctx: disnake.ApplicationCommandInteraction,
-    amount: str = commands.Param(description="Amount or 'all'")
-):
-    user_data = get_user_data(ctx.author.id)
-    
-    if amount.lower() == "all":
-        amount_to_deposit = user_data["wallet"]
-    else:
-        try:
-            amount_to_deposit = int(amount)
-        except ValueError:
-            embed = disnake.Embed(
-                title="Error",
-                description="Enter a number or 'all'",
-                color=EMBED_COLOR
-            )
-            await safe_send(ctx, embed=embed, ephemeral=True)
-            return
-    
-    if amount_to_deposit <= 0:
-        embed = disnake.Embed(
-            title="Error",
-            description="Amount must be greater than 0",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    if user_data["wallet"] < amount_to_deposit:
-        embed = disnake.Embed(
-            title="Error",
-            description=f"Not enough cash in your wallet!",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    await safe_defer(ctx)
-    new_wallet = user_data["wallet"] - amount_to_deposit
-    new_bank = user_data["bank"] + amount_to_deposit
-    
-    update_user_wallet(ctx.author.id, new_wallet)
-    update_user_bank(ctx.author.id, new_bank)
-    
-    embed = disnake.Embed(
-        title="Deposit",
-        description=f"You deposited **{amount_to_deposit}** {CURRENCY}",
-        color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="Wallet",
-        value=f"{new_wallet} {CURRENCY}",
-        inline=False
-    )
-    embed.add_field(
-        name="Bank",
-        value=f"{new_bank} {CURRENCY}",
-        inline=False
-    )
-    embed.set_thumbnail(url=ctx.author.display_avatar.url)
-    
-    await safe_send(ctx, embed=embed)
-
-
-@bot.slash_command(name="withdraw", description="Withdraw cash from the bank")
-async def withdraw(
-    ctx: disnake.ApplicationCommandInteraction,
-    amount: str = commands.Param(description="Amount or 'all'")
-):
-    user_data = get_user_data(ctx.author.id)
-    
-    if amount.lower() == "all":
-        amount_to_withdraw = user_data["bank"]
-    else:
-        try:
-            amount_to_withdraw = int(amount)
-        except ValueError:
-            embed = disnake.Embed(
-                title="Error",
-                description="Enter a number or 'all'",
-                color=EMBED_COLOR
-            )
-            await safe_send(ctx, embed=embed, ephemeral=True)
-            return
-    
-    if amount_to_withdraw <= 0:
-        embed = disnake.Embed(
-            title="Error",
-            description="Amount must be greater than 0",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    if user_data["bank"] < amount_to_withdraw:
-        embed = disnake.Embed(
-            title="Error",
-            description=f"Not enough cash in your bank!",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    await safe_defer(ctx)
-    new_wallet = user_data["wallet"] + amount_to_withdraw
-    new_bank = user_data["bank"] - amount_to_withdraw
-    
-    update_user_wallet(ctx.author.id, new_wallet)
-    update_user_bank(ctx.author.id, new_bank)
-    
-    embed = disnake.Embed(
-        title="Withdrawal",
-        description=f"You withdrew **{amount_to_withdraw}** {CURRENCY}",
-        color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="Wallet",
-        value=f"{new_wallet} {CURRENCY}",
-        inline=False
-    )
-    embed.add_field(
-        name="Bank",
-        value=f"{new_bank} {CURRENCY}",
-        inline=False
-    )
-    embed.set_thumbnail(url=ctx.author.display_avatar.url)
-    
-    await safe_send(ctx, embed=embed)

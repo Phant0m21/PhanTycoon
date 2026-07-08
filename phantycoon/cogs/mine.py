@@ -48,7 +48,7 @@ class MineView(disnake.ui.View):
         pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
         pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
         
-        ore_name, amount = get_mine_result(pickaxe_name)
+        ore_name, amount = get_mine_result(pickaxe_name, inter.author.id)
         
         # Add ore to inventory
         inventory = get_user_inventory(inter.author.id)
@@ -94,7 +94,8 @@ class MineView(disnake.ui.View):
             if ore_name in ORES and quantity > 0:
                 ore_data = ORES[ore_name]
                 base_price = random.randint(ore_data["price_min"], ore_data["price_max"])
-                price = int(base_price * (1 + ore_bonus / 100))
+                prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
+                price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier)
                 earned = price * quantity
                 total_earned += earned
                 sold_items.append(f"{ORES[ore_name]['emoji']} {ore_name} x{quantity} = {earned} {CURRENCY}")
@@ -152,7 +153,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
     pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     
     # Run mining action
-    ore_name, amount = get_mine_result(pickaxe_name)
+    ore_name, amount = get_mine_result(pickaxe_name, user_id)
     
     # Add ore to inventory
     inventory = get_user_inventory(user_id)

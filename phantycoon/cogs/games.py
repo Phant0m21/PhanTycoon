@@ -29,7 +29,7 @@ async def coinflip(
     if user_data["wallet"] < bet:
         embed = disnake.Embed(
             title="Error",
-            description=f"Not enough cash in your wallet!",
+            description="Not enough cash!",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
@@ -57,7 +57,7 @@ async def coinflip(
         
         if has_insurance:
             refund = int(bet * 0.3)
-            # Fetch current wallet
+            # Fetch current balance
             current_wallet = get_user_data(user_id)["wallet"]
             update_user_wallet(user_id, current_wallet + refund)
             

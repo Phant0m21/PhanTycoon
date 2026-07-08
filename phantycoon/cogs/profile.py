@@ -38,26 +38,14 @@ class ProfileView(disnake.ui.View):
                 color=EMBED_COLOR
             )
             
-            total = user_data["wallet"] + user_data["bank"]
-            
             embed.add_field(
                 name="Prestige",
-                value="0",
+                value=f"{user_data.get('prestige_level', 0)}",
                 inline=False
             )
             embed.add_field(
-                name="Net worth",
-                value=f"{total} {CURRENCY}",
-                inline=False
-            )
-            embed.add_field(
-                name="Wallet",
+                name="Balance",
                 value=f"{user_data['wallet']} {CURRENCY}",
-                inline=False
-            )
-            embed.add_field(
-                name="Bank",
-                value=f"{user_data['bank']} {CURRENCY}",
                 inline=False
             )
             
@@ -204,26 +192,14 @@ async def profile(
         color=EMBED_COLOR
     )
     
-    total = user_data["wallet"] + user_data["bank"]
-    
     embed.add_field(
         name="Prestige",
-        value="0",
+        value=f"{user_data.get('prestige_level', 0)}",
         inline=False
     )
     embed.add_field(
-        name="Net worth",
-        value=f"{total} {CURRENCY}",
-        inline=False
-    )
-    embed.add_field(
-        name="Wallet",
+        name="Balance",
         value=f"{user_data['wallet']} {CURRENCY}",
-        inline=False
-    )
-    embed.add_field(
-        name="Bank",
-        value=f"{user_data['bank']} {CURRENCY}",
         inline=False
     )
     

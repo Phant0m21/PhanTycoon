@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from phantycoon.config import DB_FILE
-from phantycoon.data import ORES, PICKAXES, UPGRADES
+from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES, UPGRADES
 
 STAT_COLUMNS = {
     "total_earned",
@@ -18,6 +18,13 @@ UPGRADE_COLUMNS = {
     "time_management_level",
     "business_optimization_level",
     "miner_boost_level",
+}
+
+PRESTIGE_UPGRADE_COLUMNS = {
+    "commanding_manager": "prestige_manager_level",
+    "starting_capital": "prestige_capital_level",
+    "double_vein": "prestige_double_ore_level",
+    "diamond_rush": "prestige_ore_value_level",
 }
 
 
@@ -77,7 +84,12 @@ def init_db():
             current_pickaxe TEXT DEFAULT 'Stone Pickaxe',
             time_management_level INTEGER DEFAULT 0,
             business_optimization_level INTEGER DEFAULT 0,
-            miner_boost_level INTEGER DEFAULT 0
+            miner_boost_level INTEGER DEFAULT 0,
+            prestige_level INTEGER DEFAULT 0,
+            prestige_manager_level INTEGER DEFAULT 0,
+            prestige_capital_level INTEGER DEFAULT 0,
+            prestige_double_ore_level INTEGER DEFAULT 0,
+            prestige_ore_value_level INTEGER DEFAULT 0
         )
     """)
     
@@ -119,10 +131,17 @@ def init_db():
         "time_management_level": "INTEGER DEFAULT 0",
         "business_optimization_level": "INTEGER DEFAULT 0",
         "miner_boost_level": "INTEGER DEFAULT 0",
+        "prestige_level": "INTEGER DEFAULT 0",
+        "prestige_manager_level": "INTEGER DEFAULT 0",
+        "prestige_capital_level": "INTEGER DEFAULT 0",
+        "prestige_double_ore_level": "INTEGER DEFAULT 0",
+        "prestige_ore_value_level": "INTEGER DEFAULT 0",
     }
     for column, definition in required_columns.items():
         if column not in existing_columns:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
+
+    cursor.execute("UPDATE users SET wallet = wallet + bank, bank = 0 WHERE bank > 0")
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_businesses_user_id ON businesses(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id)")
@@ -143,7 +162,9 @@ def get_user_data(user_id):
         SELECT wallet, bank, last_work, last_collect, last_mine, registered_at, 
                total_earned, total_spent, work_earned, collect_earned, 
                work_count, games_played, current_pickaxe,
-               time_management_level, business_optimization_level, miner_boost_level
+               time_management_level, business_optimization_level, miner_boost_level,
+               prestige_level, prestige_manager_level, prestige_capital_level,
+               prestige_double_ore_level, prestige_ore_value_level
         FROM users WHERE user_id = ?
     """, (str(user_id),))
     result = cursor.fetchone()
@@ -152,9 +173,11 @@ def get_user_data(user_id):
         now = datetime.now(timezone.utc).isoformat()
         cursor.execute("""
             INSERT INTO users (user_id, registered_at, current_pickaxe,
-                time_management_level, business_optimization_level, miner_boost_level) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (str(user_id), now, "Stone Pickaxe", 0, 0, 0))
+                time_management_level, business_optimization_level, miner_boost_level,
+                prestige_level, prestige_manager_level, prestige_capital_level,
+                prestige_double_ore_level, prestige_ore_value_level) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (str(user_id), now, "Stone Pickaxe", 0, 0, 0, 0, 0, 0, 0, 0))
         conn.commit()
         conn.close()
         return {
@@ -164,7 +187,12 @@ def get_user_data(user_id):
             "current_pickaxe": "Stone Pickaxe",
             "time_management_level": 0,
             "business_optimization_level": 0,
-            "miner_boost_level": 0
+            "miner_boost_level": 0,
+            "prestige_level": 0,
+            "prestige_manager_level": 0,
+            "prestige_capital_level": 0,
+            "prestige_double_ore_level": 0,
+            "prestige_ore_value_level": 0
         }
     
     conn.close()
@@ -184,20 +212,18 @@ def get_user_data(user_id):
         "current_pickaxe": result[12] if result[12] is not None else "Stone Pickaxe",
         "time_management_level": result[13] if result[13] is not None else 0,
         "business_optimization_level": result[14] if result[14] is not None else 0,
-        "miner_boost_level": result[15] if result[15] is not None else 0
+        "miner_boost_level": result[15] if result[15] is not None else 0,
+        "prestige_level": result[16] if result[16] is not None else 0,
+        "prestige_manager_level": result[17] if result[17] is not None else 0,
+        "prestige_capital_level": result[18] if result[18] is not None else 0,
+        "prestige_double_ore_level": result[19] if result[19] is not None else 0,
+        "prestige_ore_value_level": result[20] if result[20] is not None else 0
     }
 
 def update_user_wallet(user_id, new_wallet):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET wallet = ? WHERE user_id = ?", (new_wallet, str(user_id)))
-    conn.commit()
-    conn.close()
-
-def update_user_bank(user_id, new_bank):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET bank = ? WHERE user_id = ?", (new_bank, str(user_id)))
     conn.commit()
     conn.close()
 
@@ -255,6 +281,21 @@ def update_upgrade_level(user_id, upgrade_name, level):
     conn.commit()
     conn.close()
 
+def update_prestige_upgrade_level(user_id, upgrade_id, level):
+    if upgrade_id not in PRESTIGE_UPGRADE_COLUMNS:
+        raise ValueError(f"Unknown prestige upgrade: {upgrade_id}")
+
+    max_level = PRESTIGE_UPGRADES[upgrade_id]["max_level"]
+    if level < 0 or level > max_level:
+        raise ValueError(f"Invalid prestige upgrade level: {level}")
+
+    column = PRESTIGE_UPGRADE_COLUMNS[upgrade_id]
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE users SET {column} = ? WHERE user_id = ?", (level, str(user_id)))
+    conn.commit()
+    conn.close()
+
 def get_user_inventory(user_id):
     conn = get_db()
     cursor = conn.cursor()
@@ -289,6 +330,89 @@ def add_business(user_id, business_name):
         cursor.execute("INSERT INTO businesses (user_id, business_name) VALUES (?, ?)", (str(user_id), business_name))
         conn.commit()
     conn.close()
+
+def get_starting_capital_amount(user_data):
+    level = user_data.get("prestige_capital_level", 0)
+    amounts = PRESTIGE_UPGRADES["starting_capital"]["amounts"]
+    if level <= 0:
+        return 0
+    return amounts[min(level, len(amounts)) - 1]
+
+def get_prestige_income_multiplier(user_data):
+    return 1 + user_data.get("prestige_manager_level", 0) * 0.20
+
+def get_prestige_ore_value_multiplier(user_data):
+    return 1 + user_data.get("prestige_ore_value_level", 0) * 0.20
+
+def prestige_reset_user(user_id):
+    user_data = get_user_data(user_id)
+    new_prestige_level = user_data.get("prestige_level", 0) + 1
+    starting_cash = get_starting_capital_amount(user_data)
+    now = datetime.now(timezone.utc).isoformat()
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT quantity FROM inventory WHERE user_id = ? AND item_name = ?",
+        (str(user_id), PRESTIGE_TOKEN_NAME),
+    )
+    row = cursor.fetchone()
+    token_quantity = (row[0] if row else 0) + 1
+
+    cursor.execute("DELETE FROM inventory WHERE user_id = ?", (str(user_id),))
+    cursor.execute(
+        "INSERT INTO inventory (user_id, item_name, quantity) VALUES (?, ?, ?)",
+        (str(user_id), PRESTIGE_TOKEN_NAME, token_quantity),
+    )
+    cursor.execute("DELETE FROM businesses WHERE user_id = ?", (str(user_id),))
+    cursor.execute(
+        """
+        UPDATE users
+        SET wallet = ?,
+            bank = 0,
+            last_work = NULL,
+            last_collect = NULL,
+            last_mine = NULL,
+            registered_at = ?,
+            total_earned = 0,
+            total_spent = 0,
+            work_earned = 0,
+            collect_earned = 0,
+            work_count = 0,
+            games_played = 0,
+            current_pickaxe = 'Stone Pickaxe',
+            time_management_level = 0,
+            business_optimization_level = 0,
+            miner_boost_level = 0,
+            prestige_level = ?
+        WHERE user_id = ?
+        """,
+        (starting_cash, now, new_prestige_level, str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+    return new_prestige_level, token_quantity, starting_cash
+
+def buy_prestige_upgrade(user_id, upgrade_id):
+    if upgrade_id not in PRESTIGE_UPGRADE_COLUMNS:
+        raise ValueError(f"Unknown prestige upgrade: {upgrade_id}")
+
+    user_data = get_user_data(user_id)
+    column = PRESTIGE_UPGRADE_COLUMNS[upgrade_id]
+    current_level = user_data.get(column, 0)
+    max_level = PRESTIGE_UPGRADES[upgrade_id]["max_level"]
+    if current_level >= max_level:
+        return False, "maxed", current_level
+
+    inventory = get_user_inventory(user_id)
+    token_quantity = inventory.get(PRESTIGE_TOKEN_NAME, 0)
+    if token_quantity < 1:
+        return False, "currency", current_level
+
+    inventory[PRESTIGE_TOKEN_NAME] = token_quantity - 1
+    update_user_inventory(user_id, inventory)
+    update_prestige_upgrade_level(user_id, upgrade_id, current_level + 1)
+    return True, "ok", current_level + 1
 
 def can_work(user_id):
     data = get_user_data(user_id)
@@ -360,7 +484,7 @@ def can_mine(user_id):
 def get_global_top():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id, wallet + bank as total FROM users WHERE wallet + bank > 0 ORDER BY total DESC")
+    cursor.execute("SELECT user_id, wallet as total FROM users WHERE wallet > 0 ORDER BY wallet DESC")
     results = cursor.fetchall()
     conn.close()
     return [(row[0], row[1]) for row in results]
@@ -369,12 +493,12 @@ def get_server_top(guild):
     guild_members = [str(member.id) for member in guild.members if not member.bot]
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id, wallet + bank as total FROM users WHERE wallet + bank > 0 ORDER BY total DESC")
+    cursor.execute("SELECT user_id, wallet as total FROM users WHERE wallet > 0 ORDER BY wallet DESC")
     results = cursor.fetchall()
     conn.close()
     return [(row[0], row[1]) for row in results if row[0] in guild_members]
 
-def get_mine_result(pickaxe_name):
+def get_mine_result(pickaxe_name, user_id=None):
     pickaxe = PICKAXES[pickaxe_name]
     available_ores = pickaxe["ores"]
     
@@ -396,5 +520,10 @@ def get_mine_result(pickaxe_name):
     
     # Ore quantity
     amount = random.randint(pickaxe["amount_min"], pickaxe["amount_max"])
+    if user_id is not None:
+        user_data = get_user_data(user_id)
+        double_chance = user_data.get("prestige_double_ore_level", 0) * 8
+        if double_chance > 0 and random.random() * 100 < double_chance:
+            amount *= 2
     
     return selected_ore, amount

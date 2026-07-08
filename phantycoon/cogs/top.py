@@ -35,7 +35,7 @@ class TopSelect(disnake.ui.Select):
         
         options = [
             disnake.SelectOption(
-                label="Net worth",
+                label="Balance",
                 value="balance",
                 description="Current balance",
                 emoji="💰"
@@ -117,7 +117,7 @@ class TopView(disnake.ui.View):
         # Fetch data depending on mode
         if self.mode == "global":
             if self.sort_by == "balance":
-                query = "SELECT user_id, wallet + bank as value FROM users WHERE wallet + bank > 0 ORDER BY value DESC"
+                query = "SELECT user_id, wallet as value FROM users WHERE wallet > 0 ORDER BY wallet DESC"
             else:
                 query = f"SELECT user_id, {self.sort_by} as value FROM users WHERE {self.sort_by} > 0 ORDER BY {self.sort_by} DESC"
             cursor.execute(query)
@@ -127,13 +127,13 @@ class TopView(disnake.ui.View):
             placeholders = ",".join(["?"] * len(guild_members))
             if guild_members:
                 if self.sort_by == "balance":
-                    query = f"SELECT user_id, wallet + bank as value FROM users WHERE user_id IN ({placeholders}) AND wallet + bank > 0 ORDER BY value DESC"
+                    query = f"SELECT user_id, wallet as value FROM users WHERE user_id IN ({placeholders}) AND wallet > 0 ORDER BY wallet DESC"
                 else:
                     query = f"SELECT user_id, {self.sort_by} as value FROM users WHERE user_id IN ({placeholders}) AND {self.sort_by} > 0 ORDER BY {self.sort_by} DESC"
                 cursor.execute(query, guild_members)
             else:
                 if self.sort_by == "balance":
-                    query = "SELECT user_id, wallet + bank as value FROM users WHERE wallet + bank > 0 ORDER BY value DESC"
+                    query = "SELECT user_id, wallet as value FROM users WHERE wallet > 0 ORDER BY wallet DESC"
                 else:
                     query = f"SELECT user_id, {self.sort_by} as value FROM users WHERE {self.sort_by} > 0 ORDER BY {self.sort_by} DESC"
                 cursor.execute(query)
@@ -167,7 +167,7 @@ class TopView(disnake.ui.View):
         
         # Field names
         field_names = {
-            "balance": "Net worth",
+            "balance": "Balance",
             "total_earned": "Total earned",
             "total_spent": "Total spent",
             "work_earned": "Earned from /work",
@@ -262,7 +262,7 @@ async def top(
     
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id, wallet + bank as total FROM users WHERE wallet + bank > 0 ORDER BY total DESC")
+    cursor.execute("SELECT user_id, wallet as total FROM users WHERE wallet > 0 ORDER BY wallet DESC")
     users = cursor.fetchall()
     conn.close()
     

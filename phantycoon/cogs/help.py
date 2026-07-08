@@ -42,8 +42,6 @@ class HelpSelect(disnake.ui.Select):
             )
             embed.add_field(name="/balance", value="Show balance", inline=False)
             embed.add_field(name="/work", value="Earn cash", inline=False)
-            embed.add_field(name="/deposit", value="Deposit cash into the bank", inline=False)
-            embed.add_field(name="/withdraw", value="Withdraw cash from the bank", inline=False)
             embed.add_field(name="/collect", value="Collect business income", inline=False)
             embed.add_field(name="/top", value="Show leaderboard", inline=False)
             embed.add_field(name="/shop", value="Open the shop", inline=False)
@@ -53,6 +51,8 @@ class HelpSelect(disnake.ui.Select):
             embed.add_field(name="/coinflip", value="Flip a coin", inline=False)
             embed.add_field(name="/mine", value="Go mining", inline=False)
             embed.add_field(name="/shop_upgrades", value="Upgrades", inline=False)
+            embed.add_field(name="/prestige_reset", value="Reset progress for prestige currency", inline=False)
+            embed.add_field(name="/prestige_shop", value="Buy permanent prestige upgrades", inline=False)
             
         elif category == "utils":
             embed = disnake.Embed(

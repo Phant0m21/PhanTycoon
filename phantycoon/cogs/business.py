@@ -9,7 +9,7 @@ from disnake.ext import commands
 
 from phantycoon.bot import bot
 from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
-from phantycoon.data import ORES, PICKAXES, UPGRADES
+from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
@@ -62,6 +62,12 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
         await safe_send(ctx, embed=embed, ephemeral=True)
         return
     
+    prestige_income_multiplier = get_prestige_income_multiplier(user_data)
+    if prestige_income_multiplier > 1:
+        prestige_bonus = int(total_income * (prestige_income_multiplier - 1))
+        total_income += prestige_bonus
+        collected_businesses.append(f"{PRESTIGE_TOKEN_EMOJI} Prestige bonus +{prestige_bonus} {CURRENCY}")
+
     await safe_defer(ctx)
     new_wallet = user_data["wallet"] + total_income
     update_user_wallet(ctx.author.id, new_wallet)

@@ -9,7 +9,7 @@ from disnake.ext import commands
 
 from phantycoon.bot import bot
 from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
-from phantycoon.data import ORES, PICKAXES, UPGRADES
+from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
@@ -24,9 +24,12 @@ class InventorySelect(disnake.ui.Select):
         options = []
         for item_name, quantity in items.items():
             if quantity > 0:
+                label = f"{item_name} x{quantity}"
+                if item_name == PRESTIGE_TOKEN_NAME:
+                    label = f"{PRESTIGE_TOKEN_EMOJI} {label}"
                 options.append(
                     disnake.SelectOption(
-                        label=f"{item_name} x{quantity}",
+                        label=label,
                         value=item_name,
                         description=f"Quantity: {quantity}"
                     )
@@ -68,6 +71,14 @@ class InventorySelect(disnake.ui.Select):
             description=f"Quantity: {quantity} pcs.",
             color=EMBED_COLOR
         )
+
+        if item_name == PRESTIGE_TOKEN_NAME:
+            embed.description = (
+                f"Quantity: {quantity} pcs.\n"
+                "This prestige currency can only be spent in `/prestige_shop`."
+            )
+            await safe_send(inter, embed=embed, ephemeral=True)
+            return
         
         view = disnake.ui.View()
         
@@ -142,6 +153,8 @@ async def inventory(
                 items_list.append(f"{ORES[item_name]['emoji']} {item_name} x{quantity}")
             elif item_name in PICKAXES:
                 items_list.append(f"{PICKAXES[item_name]['emoji']} {item_name} x{quantity}")
+            elif item_name == PRESTIGE_TOKEN_NAME:
+                items_list.append(f"{PRESTIGE_TOKEN_EMOJI} {item_name} x{quantity}")
             else:
                 items_list.append(f"{item_name} x{quantity}")
     
@@ -187,6 +200,14 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
     
     if quantity <= 0:
         await safe_send(inter, "❌ You do not have this item!", ephemeral=True)
+        return
+
+    if item_name == PRESTIGE_TOKEN_NAME:
+        await safe_send(
+            inter,
+            f"❌ {PRESTIGE_TOKEN_EMOJI} {PRESTIGE_TOKEN_NAME} can only be spent in `/prestige_shop`.",
+            ephemeral=True,
+        )
         return
     
     shop = load_shop()
@@ -271,7 +292,8 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             
             ore_data = ORES[item_name]
             base_price = random.randint(ore_data["price_min"], ore_data["price_max"])
-            price = int(base_price * (1 + ore_bonus / 100))
+            prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
+            price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier)
         elif item_name in PICKAXES:
             # Pickaxe sale price is 50% of purchase price
             for category, items in shop.items():

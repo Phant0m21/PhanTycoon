@@ -80,6 +80,33 @@ ORES = {
     }
 }
 
+PRESTIGE_TOKEN_NAME = "Ender Eye"
+PRESTIGE_TOKEN_EMOJI = "<:endereye:1524261840664793280>"
+
+PRESTIGE_UPGRADES = {
+    "commanding_manager": {
+        "name": "Commanding Manager",
+        "max_level": 5,
+        "description": "Permanently increases /work and /collect income by +20% per level.",
+    },
+    "starting_capital": {
+        "name": "Starting Capital",
+        "max_level": 4,
+        "description": "Grants extra cash after future prestige resets.",
+        "amounts": [10000, 25000, 50000, 100000],
+    },
+    "double_vein": {
+        "name": "Double Vein",
+        "max_level": 5,
+        "description": "Adds +8% chance per level to receive x2 ore when mining.",
+    },
+    "diamond_rush": {
+        "name": "Diamond Rush",
+        "max_level": 5,
+        "description": "Permanently increases all ore sale prices by +20% per level.",
+    },
+}
+
 # ==================== UPGRADE DATA ====================
 
 UPGRADES = {
