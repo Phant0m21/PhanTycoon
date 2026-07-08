@@ -191,4 +191,4 @@ async def prestige_reset(ctx: disnake.ApplicationCommandInteraction):
 @bot.slash_command(name="prestige_shop", description="Buy permanent prestige upgrades")
 async def prestige_shop(ctx: disnake.ApplicationCommandInteraction):
     embed = build_prestige_shop_embed(ctx.author)
-    await safe_send(ctx, embed=embed, view=PrestigeShopView(ctx.author.id), ephemeral=True)
+    await safe_send(ctx, embed=embed, view=PrestigeShopView(ctx.author.id))
