@@ -57,6 +57,7 @@ class MineView(disnake.ui.View):
         
         # Update mining timestamp
         update_last_mine(inter.author.id)
+        grant_clan_xp(inter.author.id, CLAN_MINE_XP)
         
         # Send result with buttons
         embed = disnake.Embed(
@@ -95,7 +96,8 @@ class MineView(disnake.ui.View):
                 ore_data = ORES[ore_name]
                 base_price = random.randint(ore_data["price_min"], ore_data["price_max"])
                 prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
-                price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier)
+                clan_multiplier = get_clan_ore_bonus_multiplier(inter.author.id)
+                price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier)
                 earned = price * quantity
                 total_earned += earned
                 sold_items.append(f"{ORES[ore_name]['emoji']} {ore_name} x{quantity} = {earned} {CURRENCY}")
@@ -162,6 +164,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
     
     # Update mining timestamp
     update_last_mine(user_id)
+    grant_clan_xp(user_id, CLAN_MINE_XP)
     
     # Send result with buttons
     embed = disnake.Embed(

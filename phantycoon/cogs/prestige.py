@@ -149,7 +149,12 @@ class PrestigeUpgradeButton(disnake.ui.Button):
         )
 
 
-@bot.slash_command(name="prestige_reset", description="Reset your progress and gain prestige currency")
+@bot.slash_command(name="prestige", description="Prestige commands")
+async def prestige(ctx: disnake.ApplicationCommandInteraction):
+    pass
+
+
+@prestige.sub_command(name="reset", description="Reset your progress and gain prestige currency")
 async def prestige_reset(ctx: disnake.ApplicationCommandInteraction):
     missing, requirements = get_missing_prestige_requirements(ctx.author.id)
     if missing:
@@ -188,7 +193,7 @@ async def prestige_reset(ctx: disnake.ApplicationCommandInteraction):
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="prestige_shop", description="Buy permanent prestige upgrades")
+@prestige.sub_command(name="shop", description="Buy permanent prestige upgrades")
 async def prestige_shop(ctx: disnake.ApplicationCommandInteraction):
     embed = build_prestige_shop_embed(ctx.author)
     await safe_send(ctx, embed=embed, view=PrestigeShopView(ctx.author.id))

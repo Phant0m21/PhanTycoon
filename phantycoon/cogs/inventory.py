@@ -75,7 +75,7 @@ class InventorySelect(disnake.ui.Select):
         if item_name == PRESTIGE_TOKEN_NAME:
             embed.description = (
                 f"Quantity: {quantity} pcs.\n"
-                "This prestige currency can only be spent in `/prestige_shop`."
+                "This prestige currency can only be spent in `/prestige shop`."
             )
             await safe_send(inter, embed=embed, ephemeral=True)
             return
@@ -205,7 +205,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
     if item_name == PRESTIGE_TOKEN_NAME:
         await safe_send(
             inter,
-            f"❌ {PRESTIGE_TOKEN_EMOJI} {PRESTIGE_TOKEN_NAME} can only be spent in `/prestige_shop`.",
+            f"❌ {PRESTIGE_TOKEN_EMOJI} {PRESTIGE_TOKEN_NAME} can only be spent in `/prestige shop`.",
             ephemeral=True,
         )
         return
@@ -293,7 +293,8 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             ore_data = ORES[item_name]
             base_price = random.randint(ore_data["price_min"], ore_data["price_max"])
             prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
-            price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier)
+            clan_multiplier = get_clan_ore_bonus_multiplier(inter.author.id)
+            price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier)
         elif item_name in PICKAXES:
             # Pickaxe sale price is 50% of purchase price
             for category, items in shop.items():

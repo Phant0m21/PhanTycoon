@@ -15,6 +15,7 @@ def load_extensions() -> None:
     import phantycoon.cogs.mine
     import phantycoon.cogs.upgrades
     import phantycoon.cogs.prestige
+    import phantycoon.cogs.clan
     import phantycoon.events
 
 

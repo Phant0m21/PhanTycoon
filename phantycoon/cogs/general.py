@@ -76,6 +76,7 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     update_user_wallet(ctx.author.id, new_wallet)
     update_last_work(ctx.author.id)
     update_stats(ctx.author.id, total_earned=earnings, work_earned=earnings, work_count=1)
+    grant_clan_xp(ctx.author.id, CLAN_WORK_XP)
 
     embed = disnake.Embed(
         title="Work",

@@ -23,6 +23,7 @@ TOP_SORT_COLUMNS = {
     "collect_earned",
     "work_count",
     "games_played",
+    "prestige_level",
 }
 
 # ==================== LEADERBOARD WITH MODE AND SORTING ====================
@@ -75,6 +76,11 @@ class TopSelect(disnake.ui.Select):
                 value="games_played",
                 description="Minigames played",
                 emoji="🎮"
+            ),
+            disnake.SelectOption(
+                label="Prestige",
+                value="prestige_level",
+                description="Prestige level"
             )
         ]
         super().__init__(
@@ -173,7 +179,8 @@ class TopView(disnake.ui.View):
             "work_earned": "Earned from /work",
             "collect_earned": "Earned from /collect",
             "work_count": "Jobs completed",
-            "games_played": "Games played"
+            "games_played": "Games played",
+            "prestige_level": "Prestige"
         }
         
         field_name = field_names.get(self.sort_by, "Value")
@@ -369,7 +376,12 @@ async def restart(ctx: disnake.ApplicationCommandInteraction):
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
-@bot.slash_command(name="add_money", description="Give cash to a user (developer only)")
+@bot.slash_command(name="money", description="Developer money commands")
+async def money(ctx: disnake.ApplicationCommandInteraction):
+    pass
+
+
+@money.sub_command(name="add", description="Give cash to a user (developer only)")
 async def add_money(
     ctx: disnake.ApplicationCommandInteraction,
     amount: int = commands.Param(gt=0, description="Amount"),
@@ -405,7 +417,7 @@ async def add_money(
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="remove_money", description="Remove cash from a user (developer only)")
+@money.sub_command(name="remove", description="Remove cash from a user (developer only)")
 async def remove_money(
     ctx: disnake.ApplicationCommandInteraction,
     amount: int = commands.Param(gt=0, description="Amount"),
@@ -450,7 +462,7 @@ async def remove_money(
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="set_money", description="Set a user balance (developer only)")
+@money.sub_command(name="set", description="Set a user balance (developer only)")
 async def set_money(
     ctx: disnake.ApplicationCommandInteraction,
     amount: int = commands.Param(ge=0, description="Amount (0 to reset)"),

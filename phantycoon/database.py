@@ -27,6 +27,13 @@ PRESTIGE_UPGRADE_COLUMNS = {
     "diamond_rush": "prestige_ore_value_level",
 }
 
+CLAN_MAX_LEVEL = 150
+CLAN_CREATE_COST = 5000
+CLAN_MAX_MEMBERS = 10
+CLAN_WORK_XP = 25
+CLAN_MINE_XP = 5
+CLAN_INVITE_SECONDS = 300
+
 
 NAME_MIGRATIONS = {
     "Каменная кирка": "Stone Pickaxe",
@@ -112,6 +119,56 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clans (
+            clan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            tag TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            access TEXT DEFAULT 'public',
+            level INTEGER DEFAULT 1,
+            xp INTEGER DEFAULT 0,
+            total_xp INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clan_members (
+            clan_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL UNIQUE,
+            rank TEXT NOT NULL DEFAULT 'Member',
+            joined_at TEXT NOT NULL,
+            total_xp INTEGER DEFAULT 0,
+            PRIMARY KEY (clan_id, user_id),
+            FOREIGN KEY (clan_id) REFERENCES clans(clan_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clan_weekly_xp (
+            clan_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            week_start TEXT NOT NULL,
+            xp INTEGER DEFAULT 0,
+            PRIMARY KEY (clan_id, user_id, week_start),
+            FOREIGN KEY (clan_id) REFERENCES clans(clan_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clan_invites (
+            clan_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            inviter_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            notified_at TEXT,
+            expires_at TEXT,
+            PRIMARY KEY (clan_id, user_id),
+            FOREIGN KEY (clan_id) REFERENCES clans(clan_id) ON DELETE CASCADE
+        )
+    """)
+
     cursor.execute("PRAGMA table_info(users)")
     existing_columns = {row["name"] for row in cursor.fetchall()}
     required_columns = {
@@ -145,6 +202,9 @@ def init_db():
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_businesses_user_id ON businesses(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_user_id ON clan_members(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_weekly_week ON clan_weekly_xp(week_start)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_invites_user_id ON clan_invites(user_id)")
 
     for old_name, new_name in NAME_MIGRATIONS.items():
         cursor.execute("UPDATE users SET current_pickaxe = ? WHERE current_pickaxe = ?", (new_name, old_name))
@@ -330,6 +390,362 @@ def add_business(user_id, business_name):
         cursor.execute("INSERT INTO businesses (user_id, business_name) VALUES (?, ?)", (str(user_id), business_name))
         conn.commit()
     conn.close()
+
+def get_current_week_start():
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=now.weekday())
+    return start.replace(hour=0, minute=0, second=0, microsecond=0).date().isoformat()
+
+def get_clan_next_level_xp(level):
+    if level >= CLAN_MAX_LEVEL:
+        return None
+    return level * 1000
+
+def get_clan_ore_bonus_multiplier(user_id):
+    clan = get_user_clan(user_id)
+    if not clan:
+        return 1
+    return 1 + clan["level"] * 0.005
+
+def get_user_clan(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT c.clan_id, c.name, c.tag, c.description, c.access, c.level, c.xp, c.total_xp,
+               m.rank, m.total_xp AS member_total_xp
+        FROM clan_members m
+        JOIN clans c ON c.clan_id = m.clan_id
+        WHERE m.user_id = ?
+        """,
+        (str(user_id),),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_clan_by_name(name):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clans WHERE name = ? COLLATE NOCASE", (name,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_clan_by_id(clan_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clans WHERE clan_id = ?", (clan_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_clan_member_count(clan_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM clan_members WHERE clan_id = ?", (clan_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def get_clan_members(clan_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT user_id, rank, joined_at, total_xp FROM clan_members WHERE clan_id = ? ORDER BY rank = 'Leader' DESC, total_xp DESC",
+        (clan_id,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def get_clan_weekly_contributions(clan_id):
+    week_start = get_current_week_start()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT user_id, xp FROM clan_weekly_xp
+        WHERE clan_id = ? AND week_start = ?
+        ORDER BY xp DESC
+        """,
+        (clan_id, week_start),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def create_clan(owner_id, name, tag):
+    if get_user_clan(owner_id):
+        return False, "already_in_clan", None
+    if get_clan_by_name(name):
+        return False, "name_taken", None
+
+    user_data = get_user_data(owner_id)
+    if user_data["wallet"] < CLAN_CREATE_COST:
+        return False, "cash", None
+
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO clans (name, tag, description, access, level, xp, total_xp, created_at)
+        VALUES (?, ?, '', 'public', 1, 0, 0, ?)
+        """,
+        (name, tag, now),
+    )
+    clan_id = cursor.lastrowid
+    cursor.execute(
+        "INSERT INTO clan_members (clan_id, user_id, rank, joined_at, total_xp) VALUES (?, ?, 'Leader', ?, 0)",
+        (clan_id, str(owner_id), now),
+    )
+    cursor.execute("UPDATE users SET wallet = wallet - ? WHERE user_id = ?", (CLAN_CREATE_COST, str(owner_id)))
+    conn.commit()
+    conn.close()
+    return True, "ok", get_clan_by_id(clan_id)
+
+def join_clan(user_id, name):
+    if get_user_clan(user_id):
+        return False, "already_in_clan", None
+
+    clan = get_clan_by_name(name)
+    if not clan:
+        return False, "not_found", None
+
+    if get_clan_member_count(clan["clan_id"]) >= CLAN_MAX_MEMBERS:
+        return False, "full", clan
+
+    if clan["access"] == "invite":
+        invite = get_active_clan_invite(user_id, clan["clan_id"])
+        if not invite:
+            return False, "invite_required", clan
+
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO clan_members (clan_id, user_id, rank, joined_at, total_xp) VALUES (?, ?, 'Member', ?, 0)",
+        (clan["clan_id"], str(user_id), now),
+    )
+    cursor.execute("DELETE FROM clan_invites WHERE user_id = ?", (str(user_id),))
+    conn.commit()
+    conn.close()
+    return True, "ok", clan
+
+def leave_clan(user_id):
+    clan = get_user_clan(user_id)
+    if not clan:
+        return False, "not_in_clan"
+    if clan["rank"] == "Leader":
+        return False, "leader"
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM clan_members WHERE user_id = ?", (str(user_id),))
+    conn.commit()
+    conn.close()
+    return True, "ok"
+
+def transfer_clan_leadership(leader_id, target_id):
+    clan = get_user_clan(leader_id)
+    if not clan:
+        return False, "not_in_clan"
+    if clan["rank"] != "Leader":
+        return False, "not_leader"
+    if str(leader_id) == str(target_id):
+        return False, "self"
+
+    target_clan = get_user_clan(target_id)
+    if not target_clan or target_clan["clan_id"] != clan["clan_id"]:
+        return False, "target_not_member"
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE clan_members SET rank = 'Member' WHERE clan_id = ? AND user_id = ?",
+        (clan["clan_id"], str(leader_id)),
+    )
+    cursor.execute(
+        "UPDATE clan_members SET rank = 'Leader' WHERE clan_id = ? AND user_id = ?",
+        (clan["clan_id"], str(target_id)),
+    )
+    conn.commit()
+    conn.close()
+    return True, "ok"
+
+def update_clan_settings(user_id, tag=None, description=None, access=None):
+    clan = get_user_clan(user_id)
+    if not clan:
+        return False, "not_in_clan", None
+    if clan["rank"] != "Leader":
+        return False, "not_leader", clan
+
+    updates = []
+    values = []
+    if tag is not None:
+        updates.append("tag = ?")
+        values.append(tag)
+    if description is not None:
+        updates.append("description = ?")
+        values.append(description)
+    if access is not None:
+        updates.append("access = ?")
+        values.append(access)
+
+    if not updates:
+        return False, "nothing", clan
+
+    values.append(clan["clan_id"])
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE clans SET {', '.join(updates)} WHERE clan_id = ?", values)
+    conn.commit()
+    conn.close()
+    return True, "ok", get_clan_by_id(clan["clan_id"])
+
+def create_clan_invite(inviter_id, target_id):
+    clan = get_user_clan(inviter_id)
+    if not clan:
+        return False, "not_in_clan", None
+    if get_user_clan(target_id):
+        return False, "target_in_clan", clan
+
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO clan_invites (clan_id, user_id, inviter_id, created_at, notified_at, expires_at)
+        VALUES (?, ?, ?, ?, NULL, NULL)
+        ON CONFLICT(clan_id, user_id) DO UPDATE SET
+            inviter_id = excluded.inviter_id,
+            created_at = excluded.created_at,
+            notified_at = NULL,
+            expires_at = NULL
+        """,
+        (clan["clan_id"], str(target_id), str(inviter_id), now),
+    )
+    conn.commit()
+    conn.close()
+    return True, "ok", clan
+
+def get_active_clan_invite(user_id, clan_id=None):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    if clan_id is None:
+        cursor.execute(
+            """
+            SELECT i.*, c.name, c.tag FROM clan_invites i
+            JOIN clans c ON c.clan_id = i.clan_id
+            WHERE i.user_id = ? AND i.expires_at IS NOT NULL AND i.expires_at > ?
+            ORDER BY i.expires_at DESC LIMIT 1
+            """,
+            (str(user_id), now),
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT i.*, c.name, c.tag FROM clan_invites i
+            JOIN clans c ON c.clan_id = i.clan_id
+            WHERE i.user_id = ? AND i.clan_id = ? AND i.expires_at IS NOT NULL AND i.expires_at > ?
+            """,
+            (str(user_id), clan_id, now),
+        )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def activate_pending_clan_invite(user_id):
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires_at = (now_dt + timedelta(seconds=CLAN_INVITE_SECONDS)).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT i.clan_id, c.name, c.tag
+        FROM clan_invites i
+        JOIN clans c ON c.clan_id = i.clan_id
+        WHERE i.user_id = ? AND i.notified_at IS NULL
+        ORDER BY i.created_at DESC LIMIT 1
+        """,
+        (str(user_id),),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    cursor.execute(
+        "UPDATE clan_invites SET notified_at = ?, expires_at = ? WHERE clan_id = ? AND user_id = ?",
+        (now, expires_at, row["clan_id"], str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+    data = dict(row)
+    data["expires_at"] = expires_at
+    return data
+
+def grant_clan_xp(user_id, xp):
+    clan = get_user_clan(user_id)
+    if not clan or xp <= 0:
+        return None
+
+    week_start = get_current_week_start()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE clan_members SET total_xp = total_xp + ? WHERE clan_id = ? AND user_id = ?",
+        (xp, clan["clan_id"], str(user_id)),
+    )
+    cursor.execute(
+        """
+        INSERT INTO clan_weekly_xp (clan_id, user_id, week_start, xp)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(clan_id, user_id, week_start) DO UPDATE SET xp = xp + excluded.xp
+        """,
+        (clan["clan_id"], str(user_id), week_start, xp),
+    )
+
+    level = clan["level"]
+    current_xp = clan["xp"] + xp
+    total_xp = clan["total_xp"] + xp
+    leveled = 0
+    while level < CLAN_MAX_LEVEL:
+        needed = get_clan_next_level_xp(level)
+        if current_xp < needed:
+            break
+        current_xp -= needed
+        level += 1
+        leveled += 1
+    if level >= CLAN_MAX_LEVEL:
+        level = CLAN_MAX_LEVEL
+        current_xp = 0
+
+    cursor.execute(
+        "UPDATE clans SET level = ?, xp = ?, total_xp = ? WHERE clan_id = ?",
+        (level, current_xp, total_xp, clan["clan_id"]),
+    )
+    conn.commit()
+    conn.close()
+    return {"clan_id": clan["clan_id"], "level": level, "xp": current_xp, "gained": xp, "leveled": leveled}
+
+def get_clan_top(limit=10):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT clan_id, name, tag, level, xp, total_xp
+        FROM clans
+        ORDER BY level DESC, total_xp DESC, xp DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 def get_starting_capital_amount(user_data):
     level = user_data.get("prestige_capital_level", 0)

@@ -14,6 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.cogs.shop import shop
 
 # ==================== SHOP UPGRADES ====================
 
@@ -158,7 +159,7 @@ class UpgradeButton(disnake.ui.Button):
         await self.view.update_embed(inter)
 
 
-@bot.slash_command(name="shop_upgrades", description="Buy passive upgrades")
+@shop.sub_command(name="upgrades", description="Buy passive upgrades")
 async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
     await safe_defer(ctx)
     

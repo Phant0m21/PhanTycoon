@@ -109,8 +109,13 @@ class ShopView(disnake.ui.View):
         self.add_item(ShopSelect(author_id))
 
 
-@bot.slash_command(name="shop", description="Open the shop")
+@bot.slash_command(name="shop", description="Shop commands")
 async def shop(ctx: disnake.ApplicationCommandInteraction):
+    pass
+
+
+@shop.sub_command(name="open", description="Open the shop")
+async def shop_open(ctx: disnake.ApplicationCommandInteraction):
     embed = disnake.Embed(
         title="Shop",
         description="Choose a category below",
@@ -144,7 +149,7 @@ async def buy(
     if not found_item:
         embed = disnake.Embed(
             title="Error",
-            description="Item not found. Use /shop to browse the shop.",
+            description="Item not found. Use `/shop open` to browse the shop.",
             color=EMBED_COLOR
         )
         await safe_send(ctx, embed=embed, ephemeral=True)
