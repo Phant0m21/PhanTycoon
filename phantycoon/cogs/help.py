@@ -2,7 +2,7 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.config import EMBED_COLOR
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 
 class HelpSelect(disnake.ui.Select):
@@ -19,7 +19,7 @@ class HelpSelect(disnake.ui.Select):
 
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "This is not your menu.", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
 
         category = inter.values[0]

@@ -46,6 +46,15 @@ async def safe_send(inter, *args, **kwargs):
     return None
 
 
+async def safe_embed(inter, title: str, description: str, *, ephemeral: bool = False, **kwargs):
+    embed = disnake.Embed(
+        title=title,
+        description=description,
+        color=kwargs.pop("color", 0xFFFFFF),
+    )
+    return await safe_send(inter, embed=embed, ephemeral=ephemeral, **kwargs)
+
+
 async def safe_edit(inter, *args, **kwargs):
     try:
         if inter.response.is_done():

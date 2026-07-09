@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 # ==================== INVENTORY ====================
 
@@ -42,7 +42,7 @@ class InventorySelect(disnake.ui.Select):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
         await safe_defer(inter, ephemeral=True)
@@ -51,7 +51,7 @@ class InventorySelect(disnake.ui.Select):
         quantity = inventory.get(item_name, 0)
         
         if quantity <= 0:
-            await safe_send(inter, "❌ You do not have this item!", ephemeral=True)
+            await safe_embed(inter, "Error", "You do not have this item.", ephemeral=True)
             return
         
         shop = load_shop()
@@ -199,13 +199,14 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
     quantity = inventory.get(item_name, 0)
     
     if quantity <= 0:
-        await safe_send(inter, "❌ You do not have this item!", ephemeral=True)
+        await safe_embed(inter, "Error", "You do not have this item.", ephemeral=True)
         return
 
     if item_name == PRESTIGE_TOKEN_NAME:
-        await safe_send(
+        await safe_embed(
             inter,
-            f"❌ {PRESTIGE_TOKEN_EMOJI} {PRESTIGE_TOKEN_NAME} can only be spent in `/prestige shop`.",
+            "Error",
+            f"{PRESTIGE_TOKEN_EMOJI} {PRESTIGE_TOKEN_NAME} can only be spent in `/prestige shop`.",
             ephemeral=True,
         )
         return
@@ -274,7 +275,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             await safe_send(inter, embed=embed, ephemeral=True)
             
         else:
-            await safe_send(inter, "❌ This item cannot be used", ephemeral=True)
+            await safe_embed(inter, "Error", "This item cannot be used.", ephemeral=True)
             
     elif action == "sell":
         price = 0
@@ -308,7 +309,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                     break
         
         if price == 0:
-            await safe_send(inter, "❌ This item cannot be sold", ephemeral=True)
+            await safe_embed(inter, "Error", "This item cannot be sold.", ephemeral=True)
             return
         
         # Sell one item

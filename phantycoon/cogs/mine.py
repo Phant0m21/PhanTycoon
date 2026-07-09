@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 # ==================== MINE ====================
 
@@ -25,7 +25,7 @@ class MineView(disnake.ui.View):
     @disnake.ui.button(label="Mine again", style=disnake.ButtonStyle.primary)
     async def mine_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
         # Check cooldown
@@ -57,6 +57,7 @@ class MineView(disnake.ui.View):
         
         # Update mining timestamp
         update_last_mine(inter.author.id)
+        update_stats(inter.author.id, mine_count=1)
         grant_clan_xp(inter.author.id, CLAN_MINE_XP)
         
         # Send result with buttons
@@ -74,7 +75,7 @@ class MineView(disnake.ui.View):
     @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.success)
     async def sell_ores_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
         inventory = get_user_inventory(inter.author.id)
@@ -164,6 +165,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
     
     # Update mining timestamp
     update_last_mine(user_id)
+    update_stats(user_id, mine_count=1)
     grant_clan_xp(user_id, CLAN_MINE_XP)
     
     # Send result with buttons

@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 # ==================== SHOP ====================
 
@@ -30,7 +30,7 @@ class ShopSelect(disnake.ui.Select):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
-            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
         await safe_defer(inter, with_message=False)

@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.cogs.shop import shop
 
 # ==================== SHOP UPGRADES ====================
@@ -111,7 +111,7 @@ class UpgradeButton(disnake.ui.Button):
     
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await safe_send(inter, "❌ This is not your menu!", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
         user_data = get_user_data(inter.author.id)

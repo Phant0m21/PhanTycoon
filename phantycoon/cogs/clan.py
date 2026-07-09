@@ -6,7 +6,7 @@ from disnake.ext import commands
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.database import *
-from phantycoon.interactions import safe_send
+from phantycoon.interactions import safe_embed, safe_send
 
 
 def format_clan_bonus(level):
@@ -31,7 +31,7 @@ async def clan_create(
             "name_taken": "A clan with this name already exists.",
             "cash": f"You need **{CLAN_CREATE_COST:,} {CURRENCY}** to create a clan.",
         }
-        await safe_send(ctx, f"❌ {messages.get(status, 'Could not create clan.')}", ephemeral=True)
+        await safe_embed(ctx, "Error", messages.get(status, "Could not create clan."), ephemeral=True)
         return
 
     embed = disnake.Embed(
@@ -58,10 +58,10 @@ async def clan_join(
             "full": f"This clan is full. Maximum members: **{CLAN_MAX_MEMBERS}**.",
             "invite_required": "This clan is invite-only. You need an active invite.",
         }
-        await safe_send(ctx, f"❌ {messages.get(status, 'Could not join clan.')}", ephemeral=True)
+        await safe_embed(ctx, "Error", messages.get(status, "Could not join clan."), ephemeral=True)
         return
 
-    await safe_send(ctx, f"✅ {ctx.author.mention} joined **[{clan_data['tag']}] {clan_data['name']}**.")
+    await safe_embed(ctx, "Success", f"{ctx.author.mention} joined **[{clan_data['tag']}] {clan_data['name']}**.")
 
 
 @clan.sub_command(name="leave", description="Leave your clan")
@@ -72,10 +72,10 @@ async def clan_leave(ctx: disnake.ApplicationCommandInteraction):
             "not_in_clan": "You are not in a clan.",
             "leader": "Leader cannot leave the clan until leadership is transferred.",
         }
-        await safe_send(ctx, f"❌ {messages.get(status, 'Could not leave clan.')}", ephemeral=True)
+        await safe_embed(ctx, "Error", messages.get(status, "Could not leave clan."), ephemeral=True)
         return
 
-    await safe_send(ctx, f"✅ {ctx.author.mention} left the clan.")
+    await safe_embed(ctx, "Success", f"{ctx.author.mention} left the clan.")
 
 
 @clan.sub_command(name="transfer", description="Transfer clan leadership")
@@ -91,17 +91,17 @@ async def clan_transfer(
             "self": "You are already the leader.",
             "target_not_member": "This user is not a member of your clan.",
         }
-        await safe_send(ctx, f"❌ {messages.get(status, 'Could not transfer leadership.')}", ephemeral=True)
+        await safe_embed(ctx, "Error", messages.get(status, "Could not transfer leadership."), ephemeral=True)
         return
 
-    await safe_send(ctx, f"✅ {ctx.author.mention} transferred clan leadership to {user.mention}.")
+    await safe_embed(ctx, "Success", f"{ctx.author.mention} transferred clan leadership to {user.mention}.")
 
 
 @clan.sub_command(name="info", description="Show clan profile")
 async def clan_info(ctx: disnake.ApplicationCommandInteraction):
     clan_data = get_user_clan(ctx.author.id)
     if not clan_data:
-        await safe_send(ctx, "❌ You are not in a clan.", ephemeral=True)
+        await safe_embed(ctx, "Error", "You are not in a clan.", ephemeral=True)
         return
 
     members = get_clan_members(clan_data["clan_id"])
@@ -162,10 +162,10 @@ async def clan_edit(
             "not_leader": "Only the clan leader can edit clan settings.",
             "nothing": "Set at least one field to edit.",
         }
-        await safe_send(ctx, f"❌ {messages.get(status, 'Could not edit clan.')}", ephemeral=True)
+        await safe_embed(ctx, "Error", messages.get(status, "Could not edit clan."), ephemeral=True)
         return
 
-    await safe_send(ctx, f"✅ Clan settings updated: **[{clan_data['tag']}] {clan_data['name']}**.")
+    await safe_embed(ctx, "Success", f"Clan settings updated: **[{clan_data['tag']}] {clan_data['name']}**.")
 
 
 @clan.sub_command(name="top", description="Show clan leaderboard")
@@ -175,7 +175,7 @@ async def clan_top(
 ):
     clans = get_clan_top(limit=100)
     if not clans:
-        await safe_send(ctx, "No clans yet.")
+        await safe_embed(ctx, "Clan Leaderboard", "No clans yet.")
         return
 
     per_page = 10
@@ -206,7 +206,7 @@ async def clan_invite(
     user: disnake.User = commands.Param(description="User to invite"),
 ):
     if user.bot:
-        await safe_send(ctx, "❌ You cannot invite bots.", ephemeral=True)
+        await safe_embed(ctx, "Error", "You cannot invite bots.", ephemeral=True)
         return
     success, status, clan_data = create_clan_invite(ctx.author.id, user.id)
     if not success:
@@ -214,12 +214,13 @@ async def clan_invite(
             "not_in_clan": "You are not in a clan.",
             "target_in_clan": "This user is already in a clan.",
         }
-        await safe_send(ctx, f"❌ {messages.get(status, 'Could not create invite.')}", ephemeral=True)
+        await safe_embed(ctx, "Error", messages.get(status, "Could not create invite."), ephemeral=True)
         return
 
-    await safe_send(
+    await safe_embed(
         ctx,
-        f"✅ {user.mention} was invited to **[{clan_data['tag']}] {clan_data['name']}**. "
+        "Clan Invite",
+        f"{user.mention} was invited to **[{clan_data['tag']}] {clan_data['name']}**. "
         "They will receive the join prompt the next time they use the bot.",
     )
 
@@ -231,9 +232,10 @@ async def notify_pending_clan_invite(ctx: disnake.ApplicationCommandInteraction)
         return
 
     expires_ts = int(datetime.fromisoformat(invite["expires_at"]).timestamp())
-    await safe_send(
+    await safe_embed(
         ctx,
-        f"📨 You were invited to **[{invite['tag']}] {invite['name']}**. "
+        "Clan Invite",
+        f"You were invited to **[{invite['tag']}] {invite['name']}**. "
         f"Use `/clan join name:{invite['name']}` before <t:{expires_ts}:R>.",
         ephemeral=True,
     )

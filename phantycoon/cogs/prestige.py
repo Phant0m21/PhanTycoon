@@ -5,7 +5,7 @@ from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES
 from phantycoon.database import *
-from phantycoon.interactions import safe_edit, safe_send
+from phantycoon.interactions import safe_edit, safe_embed, safe_send
 from phantycoon.shop_data import load_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 
@@ -123,28 +123,30 @@ class PrestigeUpgradeButton(disnake.ui.Button):
 
     async def callback(self, inter: disnake.MessageInteraction):
         if inter.author.id != self.view.author_id:
-            await safe_send(inter, "❌ This is not your prestige shop.", ephemeral=True)
+            await safe_embed(inter, "Error", "This is not your prestige shop.", ephemeral=True)
             return
 
         success, status, level = buy_prestige_upgrade(inter.author.id, self.upgrade_id)
         upgrade = PRESTIGE_UPGRADES[self.upgrade_id]
         if not success:
             if status == "currency":
-                await safe_send(
+                await safe_embed(
                     inter,
-                    f"❌ You need {PRESTIGE_TOKEN_EMOJI} **1** to buy this upgrade.",
+                    "Error",
+                    f"You need {PRESTIGE_TOKEN_EMOJI} **1** to buy this upgrade.",
                     ephemeral=True,
                 )
             else:
-                await safe_send(inter, "❌ This upgrade is already maxed.", ephemeral=True)
+                await safe_embed(inter, "Error", "This upgrade is already maxed.", ephemeral=True)
             return
 
         self.view.refresh_buttons()
         embed = build_prestige_shop_embed(inter.author)
         await safe_edit(inter, embed=embed, view=self.view)
-        await safe_send(
+        await safe_embed(
             inter,
-            f"✅ **{upgrade['name']}** upgraded to level **{level}**.",
+            "Success",
+            f"**{upgrade['name']}** upgraded to level **{level}**.",
             ephemeral=True,
         )
 
