@@ -34,6 +34,11 @@ CLAN_MAX_MEMBERS = 10
 CLAN_WORK_XP = 25
 CLAN_MINE_XP = 5
 CLAN_INVITE_SECONDS = 300
+CAPTCHA_MIN_ACTIONS = 100
+CAPTCHA_MAX_ACTIONS = 150
+CAPTCHA_MAX_ATTEMPTS = 3
+CAPTCHA_MAX_REGENS = 5
+CAPTCHA_BAN_DAYS = 7
 
 
 NAME_MIGRATIONS = {
@@ -98,7 +103,14 @@ def init_db():
             prestige_manager_level INTEGER DEFAULT 0,
             prestige_capital_level INTEGER DEFAULT 0,
             prestige_double_ore_level INTEGER DEFAULT 0,
-            prestige_ore_value_level INTEGER DEFAULT 0
+            prestige_ore_value_level INTEGER DEFAULT 0,
+            is_captcha_active INTEGER DEFAULT 0,
+            captcha_code TEXT DEFAULT NULL,
+            captcha_attempts INTEGER DEFAULT 0,
+            captcha_regens INTEGER DEFAULT 0,
+            captcha_banned_until TEXT DEFAULT NULL,
+            captcha_mine_actions INTEGER DEFAULT 0,
+            captcha_mine_limit INTEGER DEFAULT 0
         )
     """)
     
@@ -196,6 +208,13 @@ def init_db():
         "prestige_capital_level": "INTEGER DEFAULT 0",
         "prestige_double_ore_level": "INTEGER DEFAULT 0",
         "prestige_ore_value_level": "INTEGER DEFAULT 0",
+        "is_captcha_active": "INTEGER DEFAULT 0",
+        "captcha_code": "TEXT DEFAULT NULL",
+        "captcha_attempts": "INTEGER DEFAULT 0",
+        "captcha_regens": "INTEGER DEFAULT 0",
+        "captcha_banned_until": "TEXT DEFAULT NULL",
+        "captcha_mine_actions": "INTEGER DEFAULT 0",
+        "captcha_mine_limit": "INTEGER DEFAULT 0",
     }
     for column, definition in required_columns.items():
         if column not in existing_columns:
@@ -377,6 +396,176 @@ def update_user_inventory(user_id, items):
             cursor.execute("INSERT INTO inventory (user_id, item_name, quantity) VALUES (?, ?, ?)", (str(user_id), item_name, quantity))
     conn.commit()
     conn.close()
+
+def _new_captcha_limit():
+    return random.randint(CAPTCHA_MIN_ACTIONS, CAPTCHA_MAX_ACTIONS)
+
+def get_captcha_status(user_id):
+    get_user_data(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT is_captcha_active, captcha_code, captcha_attempts, captcha_regens,
+               captcha_banned_until, captcha_mine_actions, captcha_mine_limit
+        FROM users WHERE user_id = ?
+        """,
+        (str(user_id),),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "is_captcha_active": bool(row["is_captcha_active"]),
+        "captcha_code": row["captcha_code"],
+        "captcha_attempts": row["captcha_attempts"] or 0,
+        "captcha_regens": row["captcha_regens"] or 0,
+        "captcha_banned_until": row["captcha_banned_until"],
+        "captcha_mine_actions": row["captcha_mine_actions"] or 0,
+        "captcha_mine_limit": row["captcha_mine_limit"] or 0,
+    }
+
+def is_captcha_banned(status):
+    banned_until = status.get("captcha_banned_until") if status else None
+    if not banned_until:
+        return False, None
+    until = datetime.fromisoformat(banned_until)
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) < until, until
+
+def activate_captcha(user_id, code):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users
+        SET is_captcha_active = 1,
+            captcha_code = ?,
+            captcha_attempts = 0,
+            captcha_regens = 0,
+            captcha_mine_actions = 0,
+            captcha_mine_limit = ?
+        WHERE user_id = ?
+        """,
+        (code, _new_captcha_limit(), str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+
+def regenerate_captcha(user_id, code):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users
+        SET captcha_code = ?,
+            captcha_regens = captcha_regens + 1
+        WHERE user_id = ?
+        """,
+        (code, str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+
+def increment_captcha_attempts(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET captcha_attempts = captcha_attempts + 1 WHERE user_id = ?",
+        (str(user_id),),
+    )
+    cursor.execute("SELECT captcha_attempts FROM users WHERE user_id = ?", (str(user_id),))
+    attempts = cursor.fetchone()["captcha_attempts"]
+    conn.commit()
+    conn.close()
+    return attempts
+
+def ban_for_failed_captcha(user_id):
+    banned_until = datetime.now(timezone.utc) + timedelta(days=CAPTCHA_BAN_DAYS)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users
+        SET is_captcha_active = 1,
+            captcha_code = NULL,
+            captcha_banned_until = ?
+        WHERE user_id = ?
+        """,
+        (banned_until.isoformat(), str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+    return banned_until
+
+def clear_captcha(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users
+        SET is_captcha_active = 0,
+            captcha_code = NULL,
+            captcha_attempts = 0,
+            captcha_regens = 0,
+            captcha_banned_until = NULL,
+            captcha_mine_actions = 0,
+            captcha_mine_limit = ?
+        WHERE user_id = ?
+        """,
+        (_new_captcha_limit(), str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+
+def record_mine_for_captcha(user_id, code_factory):
+    get_user_data(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT is_captcha_active, captcha_mine_actions, captcha_mine_limit FROM users WHERE user_id = ?",
+        (str(user_id),),
+    )
+    row = cursor.fetchone()
+    if not row or row["is_captcha_active"]:
+        conn.close()
+        return False, None
+
+    current_limit = row["captcha_mine_limit"] or _new_captcha_limit()
+    actions = (row["captcha_mine_actions"] or 0) + 1
+    if actions >= current_limit:
+        code = code_factory()
+        cursor.execute(
+            """
+            UPDATE users
+            SET is_captcha_active = 1,
+                captcha_code = ?,
+                captcha_attempts = 0,
+                captcha_regens = 0,
+                captcha_mine_actions = 0,
+                captcha_mine_limit = ?
+            WHERE user_id = ?
+            """,
+            (code, _new_captcha_limit(), str(user_id)),
+        )
+        conn.commit()
+        conn.close()
+        return True, code
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET captcha_mine_actions = ?,
+            captcha_mine_limit = ?
+        WHERE user_id = ?
+        """,
+        (actions, current_limit, str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+    return False, None
 
 def get_user_businesses(user_id):
     conn = get_db()

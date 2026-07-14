@@ -14,6 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 
 # ==================== MINE ====================
 
@@ -26,6 +27,9 @@ class MineView(disnake.ui.View):
     async def mine_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
+            return
+
+        if await block_if_captcha_active(inter):
             return
         
         # Check cooldown
@@ -59,6 +63,7 @@ class MineView(disnake.ui.View):
         update_last_mine(inter.author.id)
         update_stats(inter.author.id, mine_count=1)
         grant_clan_xp(inter.author.id, CLAN_MINE_XP)
+        captcha_triggered, captcha_code = record_mine_for_captcha(inter.author.id, generate_captcha_code)
         
         # Send result with buttons
         embed = disnake.Embed(
@@ -71,11 +76,16 @@ class MineView(disnake.ui.View):
         # Create a fresh view for the new message
         view = MineView(inter.author.id)
         await safe_send(inter, embed=embed, view=view)
+        if captcha_triggered:
+            await send_captcha(inter, captcha_code)
     
     @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.success)
     async def sell_ores_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
         if inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
+            return
+
+        if await block_if_captcha_active(inter):
             return
         
         inventory = get_user_inventory(inter.author.id)
@@ -167,6 +177,7 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
     update_last_mine(user_id)
     update_stats(user_id, mine_count=1)
     grant_clan_xp(user_id, CLAN_MINE_XP)
+    captcha_triggered, captcha_code = record_mine_for_captcha(user_id, generate_captcha_code)
     
     # Send result with buttons
     embed = disnake.Embed(
@@ -178,3 +189,5 @@ async def mine(ctx: disnake.ApplicationCommandInteraction):
     
     view = MineView(ctx.author.id)
     await safe_send(ctx, embed=embed, view=view)
+    if captcha_triggered:
+        await send_captcha(ctx, captcha_code)

@@ -7,6 +7,7 @@ def load_extensions() -> None:
     import phantycoon.cogs.general
     import phantycoon.cogs.top
     import phantycoon.cogs.help
+    import phantycoon.cogs.captcha
     import phantycoon.cogs.business
     import phantycoon.cogs.shop
     import phantycoon.cogs.inventory

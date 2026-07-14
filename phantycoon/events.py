@@ -26,6 +26,9 @@ async def on_ready():
 
 @bot.event
 async def on_slash_command_error(ctx: disnake.ApplicationCommandInteraction, error: Exception):
+    if isinstance(error, commands.CheckFailure):
+        return
+
     print(f"Command error {getattr(ctx.application_command, 'qualified_name', 'unknown')}: {error!r}")
     embed = disnake.Embed(
         title="Error",

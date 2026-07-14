@@ -62,6 +62,8 @@ class HelpSelect(disnake.ui.Select):
             embed.title = "Utilities"
             embed.description = "Utility commands"
             embed.add_field(name="/ping", value="Show technical info", inline=False)
+            embed.add_field(name="/verify", value="Solve an active captcha", inline=False)
+            embed.add_field(name="/verify_regen", value="Regenerate an active captcha", inline=False)
             embed.add_field(name="/support", value="Open the support server invite", inline=False)
 
         elif category == "admin":
