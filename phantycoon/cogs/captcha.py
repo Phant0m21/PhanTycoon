@@ -79,7 +79,7 @@ async def send_captcha(inter, code, *, title="Captcha Required"):
         color=EMBED_COLOR,
     )
     embed.set_image(url="attachment://captcha.png")
-    await safe_send(inter, embed=embed, file=create_captcha_file(code), ephemeral=True)
+    await safe_send(inter, embed=embed, file=create_captcha_file(code))
 
 
 async def send_failed_captcha_ban(inter, banned_until):
