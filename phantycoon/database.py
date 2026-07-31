@@ -34,8 +34,8 @@ CLAN_MAX_MEMBERS = 10
 CLAN_WORK_XP = 25
 CLAN_MINE_XP = 5
 CLAN_INVITE_SECONDS = 300
-CAPTCHA_MIN_ACTIONS = 100
-CAPTCHA_MAX_ACTIONS = 150
+CAPTCHA_ACTION_INTERVAL = 150
+CAPTCHA_TRIGGER_CHANCE = 0.33
 CAPTCHA_MAX_ATTEMPTS = 3
 CAPTCHA_MAX_REGENS = 5
 CAPTCHA_BAN_DAYS = 7
@@ -398,7 +398,7 @@ def update_user_inventory(user_id, items):
     conn.close()
 
 def _new_captcha_limit():
-    return random.randint(CAPTCHA_MIN_ACTIONS, CAPTCHA_MAX_ACTIONS)
+    return CAPTCHA_ACTION_INTERVAL
 
 def get_captcha_status(user_id):
     get_user_data(user_id)
@@ -533,9 +533,18 @@ def record_mine_for_captcha(user_id, code_factory):
         conn.close()
         return False, None
 
-    current_limit = row["captcha_mine_limit"] or _new_captcha_limit()
     actions = (row["captcha_mine_actions"] or 0) + 1
-    if actions >= current_limit:
+    if actions >= CAPTCHA_ACTION_INTERVAL:
+        # One anti-bot check every 150 successful mine actions. A failed roll
+        # starts a fresh 150-action interval instead of checking every click.
+        if random.random() >= CAPTCHA_TRIGGER_CHANCE:
+            cursor.execute(
+                "UPDATE users SET captcha_mine_actions = 0, captcha_mine_limit = ? WHERE user_id = ?",
+                (CAPTCHA_ACTION_INTERVAL, str(user_id)),
+            )
+            conn.commit()
+            conn.close()
+            return False, None
         code = code_factory()
         cursor.execute(
             """
@@ -548,7 +557,7 @@ def record_mine_for_captcha(user_id, code_factory):
                 captcha_mine_limit = ?
             WHERE user_id = ?
             """,
-            (code, _new_captcha_limit(), str(user_id)),
+            (code, CAPTCHA_ACTION_INTERVAL, str(user_id)),
         )
         conn.commit()
         conn.close()
@@ -561,7 +570,7 @@ def record_mine_for_captcha(user_id, code_factory):
             captcha_mine_limit = ?
         WHERE user_id = ?
         """,
-        (actions, current_limit, str(user_id)),
+        (actions, CAPTCHA_ACTION_INTERVAL, str(user_id)),
     )
     conn.commit()
     conn.close()
@@ -804,20 +813,22 @@ def create_clan_invite(inviter_id, target_id):
     if get_user_clan(target_id):
         return False, "target_in_clan", clan
 
-    now = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires_at = (now_dt + timedelta(seconds=CLAN_INVITE_SECONDS)).isoformat()
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
         """
         INSERT INTO clan_invites (clan_id, user_id, inviter_id, created_at, notified_at, expires_at)
-        VALUES (?, ?, ?, ?, NULL, NULL)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(clan_id, user_id) DO UPDATE SET
             inviter_id = excluded.inviter_id,
             created_at = excluded.created_at,
-            notified_at = NULL,
-            expires_at = NULL
+            notified_at = excluded.notified_at,
+            expires_at = excluded.expires_at
         """,
-        (clan["clan_id"], str(target_id), str(inviter_id), now),
+        (clan["clan_id"], str(target_id), str(inviter_id), now, now, expires_at),
     )
     conn.commit()
     conn.close()
@@ -1112,28 +1123,15 @@ def get_mine_result(pickaxe_name, user_id=None):
     pickaxe = PICKAXES[pickaxe_name]
     available_ores = pickaxe["ores"]
     
-    # Roll ore by chances
-    roll = random.random() * 100
-    cumulative = 0
-    selected_ore = None
-    
-    for ore_name, ore_data in ORES.items():
-        if ore_name not in available_ores:
-            continue
-        cumulative += ore_data["chance"]
-        if roll <= cumulative:
-            selected_ore = ore_name
-            break
-    
-    if selected_ore is None:
-        selected_ore = available_ores[-1] if available_ores else "Coal"
-    
-    # Ore quantity
-    amount = random.randint(pickaxe["amount_min"], pickaxe["amount_max"])
-    if user_id is not None:
-        user_data = get_user_data(user_id)
-        double_chance = user_data.get("prestige_double_ore_level", 0) * 8
+    results = {}
+    weights = [ORES[name]["chance"] for name in available_ores]
+    rolls = random.randint(pickaxe.get("rolls_min", 1), pickaxe.get("rolls_max", 1))
+    user_data = get_user_data(user_id) if user_id is not None else {}
+    double_chance = user_data.get("prestige_double_ore_level", 0) * 8
+    for _ in range(rolls):
+        selected_ore = random.choices(available_ores, weights=weights, k=1)[0]
+        amount = random.randint(pickaxe["amount_min"], pickaxe["amount_max"])
         if double_chance > 0 and random.random() * 100 < double_chance:
             amount *= 2
-    
-    return selected_ore, amount
+        results[selected_ore] = results.get(selected_ore, 0) + amount
+    return results

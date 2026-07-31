@@ -102,5 +102,5 @@ async def support(ctx: disnake.ApplicationCommandInteraction):
         color=EMBED_COLOR,
     )
     view = disnake.ui.View()
-    view.add_item(disnake.ui.Button(label="Join", url="https://discord.gg/puv8hfzZDT"))
+    view.add_item(disnake.ui.Button(label="Join", url="https://discord.gg/8rWEMDg5Dx"))
     await safe_send(ctx, embed=embed, view=view)

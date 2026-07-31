@@ -221,8 +221,19 @@ async def clan_invite(
         ctx,
         "Clan Invite",
         f"{user.mention} was invited to **[{clan_data['tag']}] {clan_data['name']}**. "
-        "They will receive the join prompt the next time they use the bot.",
+        "The invite is active now and remains valid for 5 minutes.",
     )
+    try:
+        await user.send(
+            embed=disnake.Embed(
+                title="Clan Invite",
+                description=f"{ctx.author.mention} invited you to **[{clan_data['tag']}] {clan_data['name']}**. "
+                            f"Use `/clan join name:{clan_data['name']}` within 5 minutes.",
+                color=EMBED_COLOR,
+            )
+        )
+    except disnake.DiscordException:
+        pass
 
 
 @bot.listen("on_application_command_completion")

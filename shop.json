@@ -56,22 +56,22 @@
     },
     "pickaxes": {
         "Iron Pickaxe": {
-            "price": 15000,
+            "price": 6000,
             "emoji": "<:ironpickaxe:1522995651095298129>",
             "category": "pickaxes"
         },
         "Golden Pickaxe": {
-            "price": 75000,
+            "price": 25000,
             "emoji": "<:goldenpickaxe:1522995649828618292>",
             "category": "pickaxes"
         },
         "Diamond Pickaxe": {
-            "price": 350000,
+            "price": 100000,
             "emoji": "<:diamondpickaxe:1522995648511868928>",
             "category": "pickaxes"
         },
         "Netherite Pickaxe": {
-            "price": 1500000,
+            "price": 400000,
             "emoji": "<:netheritepickaxe:1522995647073226843>",
             "category": "pickaxes"
         }

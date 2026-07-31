@@ -1,193 +1,133 @@
-import os
-import sys
-import asyncio
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import disnake
-from disnake.ext import commands
 
 from phantycoon.bot import bot
-from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
+from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import ORES, PICKAXES, UPGRADES
-from phantycoon.database import *
-from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.database import (
+    CLAN_MINE_XP, can_mine, get_clan_ore_bonus_multiplier, get_mine_result,
+    get_prestige_ore_value_multiplier, get_user_data, get_user_inventory,
+    grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
+    update_user_inventory, update_user_wallet,
+)
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 
-# ==================== MINE ====================
+
+MINE_TIPS = (
+    "Sell ore with the **Sell ore** button: Ore Miner, Diamond Rush and your clan bonus all increase the final sale price.",
+    "A better pickaxe does more than unlock rare ore: it also performs more mining rolls per click and lowers the cooldown.",
+    "Open `/profile` → **Buffs** to see every active multiplier, its exact value and your current mine cooldown.",
+    "Joining a clan increases the value of every ore you sell. The bonus grows by **0.5% per clan level**.",
+    "The **Double Vein** prestige upgrade rolls separately for every ore find, so it becomes stronger with high-tier pickaxes.",
+    "Ore Miner and Diamond Rush multiply ore value together with the clan bonus; improving different sources scales better over time.",
+    "You can keep using **Mine again** on an old mine message—even after a long break or a bot restart—without entering `/mine` again.",
+    "Early upgrades are intentionally inexpensive. Buy a few Ore Miner levels before saving for the next pickaxe to speed up progression.",
+    "Time Management affects both `/work` and `/mine`, making it useful even when you alternate between active mining and timed income.",
+    "Do not sell a pickaxe you still want to use: pickaxes sell for only half their shop price, while ore has no storage limit.",
+    "Business Optimization affects `/collect`, while Commanding Manager boosts both `/work` and business income. Their bonuses serve different systems.",
+    "If a captcha appears, solve it with `/verify code`. The code is case-sensitive; `/verify_regen` replaces an unreadable image.",
+)
+
+
+def mine_embed(user, pickaxe_name, results):
+    found = "\n".join(f"{ORES[name]['emoji']} {name} x{amount}" for name, amount in results.items())
+    emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
+    embed = disnake.Embed(
+        title="Mine",
+        description=f"{user.mention} found:\n{found}\n\nPickaxe: {emoji} {pickaxe_name}",
+        color=EMBED_COLOR,
+    )
+    embed.set_thumbnail(url=user.display_avatar.url)
+    if random.random() < 0.05:
+        embed.add_field(name="💡 Useful tip", value=random.choice(MINE_TIPS), inline=False)
+    return embed
+
+
+async def run_mine(inter):
+    if await block_if_captcha_active(inter):
+        return
+    can, next_time, _ = can_mine(inter.author.id)
+    if not can:
+        wait_seconds = max(1, int((next_time - datetime.now(timezone.utc)).total_seconds()))
+        await safe_embed(inter, "Mine", f"You are mining too fast. Wait **{wait_seconds} sec.**", ephemeral=True)
+        return
+
+    await safe_defer(inter)
+    user_data = get_user_data(inter.author.id)
+    pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
+    results = get_mine_result(pickaxe_name, inter.author.id)
+    inventory = get_user_inventory(inter.author.id)
+    for ore_name, amount in results.items():
+        inventory[ore_name] = inventory.get(ore_name, 0) + amount
+    update_user_inventory(inter.author.id, inventory)
+    update_last_mine(inter.author.id)
+    update_stats(inter.author.id, mine_count=1)
+    grant_clan_xp(inter.author.id, CLAN_MINE_XP)
+    captcha_triggered, captcha_code = record_mine_for_captcha(inter.author.id, generate_captcha_code)
+    await safe_send(inter, embed=mine_embed(inter.author, pickaxe_name, results), view=MineView(inter.author.id))
+    if captcha_triggered:
+        await send_captcha(inter, captcha_code)
+
 
 class MineView(disnake.ui.View):
-    def __init__(self, author_id):
-        super().__init__(timeout=60)
+    def __init__(self, author_id=None):
+        super().__init__(timeout=None)
         self.author_id = author_id
-    
-    @disnake.ui.button(label="Mine again", style=disnake.ButtonStyle.primary)
-    async def mine_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        if inter.author.id != self.author_id:
-            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
-            return
 
+    async def interaction_check(self, inter):
+        # After a restart persistent legacy buttons become personal shortcuts for whoever clicks.
+        if self.author_id is not None and inter.author.id != self.author_id:
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
+            return False
+        return True
+
+    @disnake.ui.button(label="Mine again", style=disnake.ButtonStyle.primary, custom_id="mine:again")
+    async def mine_button(self, button, inter):
+        await run_mine(inter)
+
+    @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.success, custom_id="mine:sell")
+    async def sell_ores_button(self, button, inter):
         if await block_if_captcha_active(inter):
             return
-        
-        # Check cooldown
-        can, next_time, cooldown = can_mine(inter.author.id)
-        if not can:
-            remaining = next_time - datetime.now(timezone.utc)
-            wait_seconds = max(1, int(remaining.total_seconds()))
-            embed = disnake.Embed(
-                title="Mine",
-                description=f"You are mining too fast. Wait **{wait_seconds} sec.**",
-                color=EMBED_COLOR
-            )
-            embed.set_thumbnail(url=inter.author.display_avatar.url)
-            await safe_send(inter, embed=embed, ephemeral=True)
-            return
-        
-        await safe_defer(inter)
-        # Run mining action
-        user_data = get_user_data(inter.author.id)
-        pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
-        pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
-        
-        ore_name, amount = get_mine_result(pickaxe_name, inter.author.id)
-        
-        # Add ore to inventory
         inventory = get_user_inventory(inter.author.id)
-        inventory[ore_name] = inventory.get(ore_name, 0) + amount
-        update_user_inventory(inter.author.id, inventory)
-        
-        # Update mining timestamp
-        update_last_mine(inter.author.id)
-        update_stats(inter.author.id, mine_count=1)
-        grant_clan_xp(inter.author.id, CLAN_MINE_XP)
-        captcha_triggered, captcha_code = record_mine_for_captcha(inter.author.id, generate_captcha_code)
-        
-        # Send result with buttons
-        embed = disnake.Embed(
-            title="Mine",
-            description=f"{inter.author.mention} found:\n{ORES[ore_name]['emoji']} {ore_name} x{amount}\n\nPickaxe: {pickaxe_emoji} {pickaxe_name}",
-            color=EMBED_COLOR
-        )
-        embed.set_thumbnail(url=inter.author.display_avatar.url)
-        
-        # Create a fresh view for the new message
-        view = MineView(inter.author.id)
-        await safe_send(inter, embed=embed, view=view)
-        if captcha_triggered:
-            await send_captcha(inter, captcha_code)
-    
-    @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.success)
-    async def sell_ores_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-        if inter.author.id != self.author_id:
-            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
-            return
-
-        if await block_if_captcha_active(inter):
-            return
-        
-        inventory = get_user_inventory(inter.author.id)
-        
-        total_earned = 0
-        sold_items = []
-        
-        # Check upgrade Ore Miner
         user_data = get_user_data(inter.author.id)
         miner_level = user_data.get("miner_boost_level", 0)
-        ore_bonus = 0
-        if miner_level > 0:
-            levels = UPGRADES["miner_boost"]["levels"]
-            for i in range(miner_level):
-                ore_bonus += levels[i]["ore_bonus"]
-        
+        ore_bonus = sum(level["ore_bonus"] for level in UPGRADES["miner_boost"]["levels"][:miner_level])
+        prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
+        clan_multiplier = get_clan_ore_bonus_multiplier(inter.author.id)
+        total_earned = 0
+        sold_items = []
         for ore_name, quantity in list(inventory.items()):
-            if ore_name in ORES and quantity > 0:
-                ore_data = ORES[ore_name]
-                base_price = random.randint(ore_data["price_min"], ore_data["price_max"])
-                prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
-                clan_multiplier = get_clan_ore_bonus_multiplier(inter.author.id)
-                price = int(base_price * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier)
-                earned = price * quantity
-                total_earned += earned
-                sold_items.append(f"{ORES[ore_name]['emoji']} {ore_name} x{quantity} = {earned} {CURRENCY}")
-                del inventory[ore_name]
-        
-        if total_earned == 0:
-            embed = disnake.Embed(
-                title="Ore Sale",
-                description="You do not have any ore to sell.",
-                color=EMBED_COLOR
-            )
-            embed.set_thumbnail(url=inter.author.display_avatar.url)
-            await safe_send(inter, embed=embed, ephemeral=True)
+            if ore_name not in ORES or quantity <= 0:
+                continue
+            ore = ORES[ore_name]
+            price = int(random.randint(ore["price_min"], ore["price_max"]) * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier)
+            earned = price * quantity
+            total_earned += earned
+            sold_items.append(f"{ore['emoji']} {ore_name} x{quantity} = {earned:,} {CURRENCY}")
+            del inventory[ore_name]
+        if not total_earned:
+            await safe_embed(inter, "Ore Sale", "You do not have any ore to sell.", ephemeral=True)
             return
-        
         await safe_defer(inter)
         update_user_inventory(inter.author.id, inventory)
-        user_data = get_user_data(inter.author.id)
         update_user_wallet(inter.author.id, user_data["wallet"] + total_earned)
         update_stats(inter.author.id, total_earned=total_earned)
-        
-        embed = disnake.Embed(
-            title="Ore Sale",
-            description="\n".join(sold_items) + f"\n\n**Total: {total_earned} {CURRENCY}**",
-            color=EMBED_COLOR
-        )
+        embed = disnake.Embed(title="Ore Sale", description="\n".join(sold_items) + f"\n\n**Total: {total_earned:,} {CURRENCY}**", color=EMBED_COLOR)
         embed.set_thumbnail(url=inter.author.display_avatar.url)
-        
-        # Create a fresh view for the new message
-        view = MineView(inter.author.id)
-        await safe_send(inter, embed=embed, view=view)
+        await safe_send(inter, embed=embed, view=MineView(inter.author.id))
+
+
+@bot.listen("on_ready")
+async def register_mine_view():
+    if not getattr(bot, "_mine_view_registered", False):
+        bot.add_view(MineView())
+        bot._mine_view_registered = True
 
 
 @bot.slash_command(name="mine", description="Go mining")
 async def mine(ctx: disnake.ApplicationCommandInteraction):
-    user_id = ctx.author.id
-    user_data = get_user_data(user_id)
-    
-    # Check cooldown
-    can, next_time, cooldown = can_mine(user_id)
-    if not can:
-        remaining = next_time - datetime.now(timezone.utc)
-        wait_seconds = max(1, int(remaining.total_seconds()))
-        embed = disnake.Embed(
-            title="Mine",
-            description=f"You are mining too fast. Wait **{wait_seconds} sec.**",
-            color=EMBED_COLOR
-        )
-        embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    await safe_defer(ctx)
-    pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
-    pickaxe_emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
-    
-    # Run mining action
-    ore_name, amount = get_mine_result(pickaxe_name, user_id)
-    
-    # Add ore to inventory
-    inventory = get_user_inventory(user_id)
-    inventory[ore_name] = inventory.get(ore_name, 0) + amount
-    update_user_inventory(user_id, inventory)
-    
-    # Update mining timestamp
-    update_last_mine(user_id)
-    update_stats(user_id, mine_count=1)
-    grant_clan_xp(user_id, CLAN_MINE_XP)
-    captcha_triggered, captcha_code = record_mine_for_captcha(user_id, generate_captcha_code)
-    
-    # Send result with buttons
-    embed = disnake.Embed(
-        title="Mine",
-        description=f"{ctx.author.mention} found:\n{ORES[ore_name]['emoji']} {ore_name} x{amount}\n\nPickaxe: {pickaxe_emoji} {pickaxe_name}",
-        color=EMBED_COLOR
-    )
-    embed.set_thumbnail(url=ctx.author.display_avatar.url)
-    
-    view = MineView(ctx.author.id)
-    await safe_send(ctx, embed=embed, view=view)
-    if captcha_triggered:
-        await send_captcha(ctx, captcha_code)
+    await run_mine(ctx)

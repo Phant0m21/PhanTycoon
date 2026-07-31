@@ -5,8 +5,9 @@ from disnake.ext import commands
 
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
-from phantycoon.data import PICKAXES
+from phantycoon.data import PICKAXES, UPGRADES
 from phantycoon.database import get_user_businesses, get_user_clan, get_user_data
+from phantycoon.state import active_buffs
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 
@@ -43,7 +44,7 @@ def build_profile_embed(target):
     pickaxe_emoji = PICKAXES.get(current_pickaxe, {}).get("emoji", "")
     embed.add_field(
         name="Pickaxe",
-        value=f"{pickaxe_emoji} {current_pickaxe}",
+        value=f"{pickaxe_emoji} {current_pickaxe}\nMine cooldown: **{get_mine_cooldown(target.id):.1f}s**",
         inline=False,
     )
 
@@ -53,6 +54,46 @@ def build_profile_embed(target):
         value="\n".join(businesses) if businesses else "None",
         inline=False,
     )
+    embed.set_thumbnail(url=target.display_avatar.url)
+    return embed
+
+
+def get_mine_cooldown(user_id):
+    user_data = get_user_data(user_id)
+    base = PICKAXES.get(user_data.get("current_pickaxe", "Stone Pickaxe"), {}).get("cooldown", 4.2)
+    level = user_data.get("time_management_level", 0)
+    reduction = sum(row["mine_reduction"] for row in UPGRADES["time_management"]["levels"][:level])
+    return max(0.5, base - reduction)
+
+
+def build_buffs_embed(target):
+    data = get_user_data(target.id)
+    tm_level = data.get("time_management_level", 0)
+    tm_rows = UPGRADES["time_management"]["levels"][:tm_level]
+    mine_reduction = sum(row["mine_reduction"] for row in tm_rows)
+    work_reduction = sum(row["work_reduction_minutes"] for row in tm_rows)
+    business_level = data.get("business_optimization_level", 0)
+    business_bonus = sum(row["income_bonus"] for row in UPGRADES["business_optimization"]["levels"][:business_level])
+    miner_level = data.get("miner_boost_level", 0)
+    ore_bonus = sum(row["ore_bonus"] for row in UPGRADES["miner_boost"]["levels"][:miner_level])
+    clan = get_user_clan(target.id)
+    clan_bonus = clan["level"] * 0.5 if clan else 0
+    vitamin_uses = active_buffs.get(target.id, {}).get("remaining", 0)
+
+    lines = [
+        f"**Pickaxe — {data.get('current_pickaxe', 'Stone Pickaxe')}**\nMine cooldown: **{get_mine_cooldown(target.id):.1f}s**; multi-find rolls: "
+        f"**{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_min', 1)}–{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_max', 1)}**",
+        f"**Time Management {tm_level}/{UPGRADES['time_management']['max_level']}**\nMine cooldown **−{mine_reduction:.1f}s**, work cooldown **−{work_reduction} min**",
+        f"**Business Optimization {business_level}/{UPGRADES['business_optimization']['max_level']}**\nBusiness collection income **+{business_bonus}%**",
+        f"**Ore Miner {miner_level}/{UPGRADES['miner_boost']['max_level']}**\nOre sale value **+{ore_bonus}%**",
+        f"**Commanding Manager {data.get('prestige_manager_level', 0)}/5**\nWork and business income **+{data.get('prestige_manager_level', 0) * 20}%**",
+        f"**Starting Capital {data.get('prestige_capital_level', 0)}/4**\nExtra starting cash after the next prestige reset",
+        f"**Double Vein {data.get('prestige_double_ore_level', 0)}/5**\nChance to double each mining roll **{data.get('prestige_double_ore_level', 0) * 8}%**",
+        f"**Diamond Rush {data.get('prestige_ore_value_level', 0)}/5**\nOre sale value **+{data.get('prestige_ore_value_level', 0) * 20}%**",
+        f"**Clan Mining Efficiency**\nOre sale value **+{clan_bonus:.1f}%**" if clan else "**Clan Mining Efficiency**\nInactive — not in a clan",
+        f"**Vitamins**\nWork income **+45%** for the next **{vitamin_uses}** shifts" if vitamin_uses else "**Vitamins**\nInactive",
+    ]
+    embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n\n".join(lines), color=EMBED_COLOR)
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
 
@@ -96,10 +137,12 @@ class ProfileView(disnake.ui.View):
         self.clear_items()
         self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary if self.mode == "profile" else disnake.ButtonStyle.secondary))
         self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary if self.mode == "stats" else disnake.ButtonStyle.secondary))
+        self.add_item(ProfileButton("Buffs", "buffs", disnake.ButtonStyle.primary if self.mode == "buffs" else disnake.ButtonStyle.secondary))
 
     async def update_embed(self, inter: disnake.MessageInteraction):
         target = await inter.bot.fetch_user(self.target_id)
-        embed = build_profile_embed(target) if self.mode == "profile" else build_stats_embed(target)
+        builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
+        embed = builders[self.mode](target)
         self.update_buttons()
         await safe_edit(inter, embed=embed, view=self)
 
