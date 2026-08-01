@@ -53,12 +53,12 @@ class UpgradesView(disnake.ui.View):
                 disabled=False
             ))
     
-    async def update_embed(self, inter: disnake.MessageInteraction):
+    async def update_embed(self, inter: disnake.MessageInteraction, notice=None, quest_rewards=None):
         user_data = get_user_data(self.author_id)
         
         embed = disnake.Embed(
             title="Upgrades",
-            description="Passive upgrades that are always active.",
+            description=f"Balance: **{user_data['wallet']:,}{CURRENCY}**" + (f" • {notice}" if notice else ""),
             color=EMBED_COLOR
         )
         
@@ -88,6 +88,7 @@ class UpgradesView(disnake.ui.View):
             )
         
         embed.set_thumbnail(url=inter.author.display_avatar.url)
+        add_quest_rewards_to_embed(embed, quest_rewards or [])
         
         self.update_buttons()
         await inter.message.edit(embed=embed, view=self)
@@ -132,7 +133,7 @@ class UpgradeButton(disnake.ui.Button):
             await safe_send(inter, embed=embed, ephemeral=True)
             return
         
-        await safe_defer(inter, ephemeral=True)
+        await safe_defer(inter, with_message=False)
         # Charge wallet
         new_wallet = user_data["wallet"] - price
         update_user_wallet(inter.author.id, new_wallet)
@@ -141,21 +142,13 @@ class UpgradeButton(disnake.ui.Button):
         new_level = current_level + 1
         update_upgrade_level(inter.author.id, f"{self.upgrade_id}_level", new_level)
         
-        embed = disnake.Embed(
-            title="Upgrade Purchased",
-            description=f"{upgrade_data['name']} upgraded to **{new_level} level** for {price} {CURRENCY}",
-            color=EMBED_COLOR
-        )
         quest_rewards = record_quest_event(inter.author.id, "cash_spent", price)
         quest_rewards += record_quest_event(inter.author.id, "upgrades_bought", 1)
-        add_quest_rewards_to_embed(embed, quest_rewards)
-        await safe_send(inter, embed=embed, ephemeral=True)
-        
-        # Refresh main message
+        notice = f"Purchased {upgrade_data['name']} L{new_level}"
         if self.view.author_id is None:
-            await UpgradesView(inter.author.id).update_embed(inter)
+            await UpgradesView(inter.author.id).update_embed(inter, notice, quest_rewards)
         else:
-            await self.view.update_embed(inter)
+            await self.view.update_embed(inter, notice, quest_rewards)
 
 
 @shop.sub_command(name="upgrades", description="Buy passive upgrades")
@@ -166,7 +159,7 @@ async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
     
     embed = disnake.Embed(
         title="Upgrades",
-        description="Passive upgrades that are always active.",
+        description=f"Balance: **{user_data['wallet']:,}{CURRENCY}**",
         color=EMBED_COLOR
     )
     

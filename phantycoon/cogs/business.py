@@ -82,18 +82,8 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
     
     embed = disnake.Embed(
         title="Income Collected",
-        description=f"You collected income from your businesses!\n\n" + "\n".join(collected_businesses),
+        description=f"**+{total_income:,}{CURRENCY}** • Balance **{new_wallet:,}{CURRENCY}**",
         color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="Total received",
-        value=f"**{total_income}** {CURRENCY}",
-        inline=False
-    )
-    embed.add_field(
-        name="New balance",
-        value=f"{new_wallet} {CURRENCY}",
-        inline=False
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
     quest_rewards = record_quest_event(ctx.author.id, "collect_actions", 1)

@@ -72,7 +72,7 @@ def build_prestige_shop_embed(user):
 
     embed = disnake.Embed(
         title="Prestige Shop",
-        description=f"Balance: {PRESTIGE_TOKEN_EMOJI} **{token_count}**\nEach upgrade costs {PRESTIGE_TOKEN_EMOJI} **1**.",
+        description=f"{PRESTIGE_TOKEN_EMOJI} **{token_count}** • Each level costs 1",
         color=EMBED_COLOR,
     )
 
@@ -146,13 +146,8 @@ class PrestigeUpgradeButton(disnake.ui.Button):
         view = PrestigeShopView(inter.author.id) if self.view.author_id is None else self.view
         view.refresh_buttons()
         embed = build_prestige_shop_embed(inter.author)
+        embed.set_footer(text=f"Purchased {upgrade['name']} level {level}")
         await safe_edit(inter, embed=embed, view=view)
-        await safe_embed(
-            inter,
-            "Success",
-            f"**{upgrade['name']}** upgraded to level **{level}**.",
-            ephemeral=True,
-        )
 
 
 @bot.slash_command(name="prestige", description="Prestige commands")

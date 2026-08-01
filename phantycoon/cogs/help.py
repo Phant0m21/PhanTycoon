@@ -27,57 +27,23 @@ class HelpSelect(disnake.ui.Select):
 
         if category == "economy":
             embed.title = "Core"
-            embed.description = "Economy commands"
-            embed.add_field(name="/balance", value="Show balance", inline=False)
-            embed.add_field(name="/work", value="Earn cash", inline=False)
-            embed.add_field(name="/collect", value="Collect business income", inline=False)
-            embed.add_field(name="/top", value="Show leaderboard", inline=False)
-            embed.add_field(name="/shop open", value="Open the shop", inline=False)
-            embed.add_field(name="/buy", value="Buy an item", inline=False)
-            embed.add_field(name="/inventory", value="Show inventory", inline=False)
-            embed.add_field(name="/profile", value="Show profile", inline=False)
-            embed.add_field(name="/shop upgrades", value="Buy passive upgrades", inline=False)
-            embed.add_field(name="/quests", value="View your three 24-hour quests", inline=False)
-            embed.add_field(name="/shop boosts", value="Spend Lapis Lazuli on temporary boosts", inline=False)
-            embed.add_field(name="/prestige reset", value="Reset progress for prestige currency", inline=False)
-            embed.add_field(name="/prestige shop", value="Buy permanent prestige upgrades", inline=False)
+            embed.description = "`/balance` `/work` `/collect` `/top`\n`/shop open` `/shop upgrades` `/shop boosts` `/buy`\n`/inventory` `/profile` `/quests`\n`/prestige reset` `/prestige shop`"
 
         elif category == "games":
             embed.title = "Minigames"
-            embed.description = "Games and active actions"
-            embed.add_field(name="/coinflip", value="Flip a coin", inline=False)
-            embed.add_field(name="/mine", value="Go mining", inline=False)
+            embed.description = "`/mine` `/coinflip`"
 
         elif category == "clans":
             embed.title = "Clans"
-            embed.description = "Clan commands"
-            embed.add_field(name="/clan create", value="Create a clan", inline=False)
-            embed.add_field(name="/clan join", value="Join a clan", inline=False)
-            embed.add_field(name="/clan info", value="Show clan profile", inline=False)
-            embed.add_field(name="/clan leave", value="Leave your clan", inline=False)
-            embed.add_field(name="/clan edit", value="Edit clan settings", inline=False)
-            embed.add_field(name="/clan invite", value="Invite a user to your clan", inline=False)
-            embed.add_field(name="/clan transfer", value="Transfer clan leadership", inline=False)
-            embed.add_field(name="/clan top", value="Show clan leaderboard", inline=False)
+            embed.description = "`/clan create` `/clan join` `/clan leave`\n`/clan info` `/clan top` `/clan invite`\n`/clan edit` `/clan transfer`"
 
         elif category == "utils":
             embed.title = "Utilities"
-            embed.description = "Utility commands"
-            embed.add_field(name="/ping", value="Show technical info", inline=False)
-            embed.add_field(name="/verify", value="Solve an active captcha", inline=False)
-            embed.add_field(name="/verify_regen", value="Regenerate an active captcha", inline=False)
-            embed.add_field(name="/support", value="Open the support server invite", inline=False)
+            embed.description = "`/ping` `/verify` `/verify_regen` `/support`"
 
         elif category == "admin":
             embed.title = "Administration"
-            embed.description = "Developer commands"
-            embed.add_field(name="/money add", value="Give cash to a user", inline=False)
-            embed.add_field(name="/money remove", value="Remove cash from a user", inline=False)
-            embed.add_field(name="/money set", value="Set exact balance", inline=False)
-            embed.add_field(name="/restart", value="Restart the bot", inline=False)
-            embed.add_field(name="/ban add", value="Ban a user from the bot", inline=False)
-            embed.add_field(name="/ban list", value="View active moderation and captcha bans", inline=False)
-            embed.add_field(name="/unban", value="Remove moderation or captcha bans", inline=False)
+            embed.description = "`/money add` `/money remove` `/money set`\n`/ban add` `/ban list` `/unban` `/restart`"
 
         await safe_edit(inter, embed=embed, view=self.view)
 
@@ -92,7 +58,7 @@ class HelpView(disnake.ui.View):
 async def help(ctx: disnake.ApplicationCommandInteraction):
     embed = disnake.Embed(
         title="Bot Help",
-        description="Choose a category below to view commands.",
+        description="Select a category.",
         color=EMBED_COLOR,
     )
     await safe_defer(ctx)

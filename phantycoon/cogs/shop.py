@@ -40,23 +40,22 @@ class ShopSelect(disnake.ui.Select):
         current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
         
         if category == "business":
+            lines = []
             embed = disnake.Embed(
                 title="🏢 Businesses",
-                description="Generate passive income every 6 hours with `/collect`",
+                description="",
                 color=EMBED_COLOR
             )
             for name, data in items.items():
                 check = " ✅" if name in user_businesses else ""
-                embed.add_field(
-                    name=f"{data['emoji']} {name} - {data['price']} {CURRENCY}{check}",
-                    value=f"Pays {data['income']} {CURRENCY} every 6 hours",
-                    inline=False
-                )
+                lines.append(f"{data['emoji']} **{name}**{check} • {data['price']:,}{CURRENCY} • +{data['income']:,}/6h")
+            embed.description = "\n".join(lines)
                 
         elif category == "pickaxes":
+            lines = []
             embed = disnake.Embed(
                 title="⛏️ Pickaxes",
-                description="Upgrade your pickaxe for better mining runs.",
+                description="",
                 color=EMBED_COLOR
             )
             for name, data in items.items():
@@ -64,14 +63,10 @@ class ShopSelect(disnake.ui.Select):
                 if not pickaxe_data:
                     continue
                 check = " ✅" if name == current_pickaxe else ""
-                ores_list = ", ".join(pickaxe_data.get("ores", []))
-                embed.add_field(
-                    name=f"{pickaxe_data.get('emoji', '')} {name} - {data['price']} {CURRENCY}{check}",
-                    value=f"Cooldown: {pickaxe_data.get('cooldown', 0)} sec\nOre: {ores_list}",
-                    inline=False
-                )
+                lines.append(f"{pickaxe_data.get('emoji', '')} **{name}**{check} • {data['price']:,}{CURRENCY} • {pickaxe_data.get('cooldown', 0)}s")
+            embed.description = "\n".join(lines)
                 
-        embed.set_footer(text="Use `/buy` to purchase an item")
+        embed.set_footer(text="Purchase with /buy")
         await safe_edit(inter, embed=embed, view=self.view)
 
 

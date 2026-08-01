@@ -84,28 +84,27 @@ def build_buffs_embed(target):
     active_boosts = get_active_boosts(target.id)
 
     lines = [
-        f"**Pickaxe — {data.get('current_pickaxe', 'Stone Pickaxe')}**\nMine cooldown: **{get_mine_cooldown(target.id):.1f}s**; multi-find rolls: "
-        f"**{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_min', 1)}–{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_max', 1)}**",
-        f"**Time Management {tm_level}/{UPGRADES['time_management']['max_level']}**\nMine cooldown **−{mine_reduction:.1f}s**, work cooldown **−{work_reduction} min**",
-        f"**Business Optimization {business_level}/{UPGRADES['business_optimization']['max_level']}**\nBusiness collection income **+{business_bonus}%**",
-        f"**Ore Miner {miner_level}/{UPGRADES['miner_boost']['max_level']}**\nOre sale value **+{ore_bonus}%**",
-        f"**Commanding Manager {data.get('prestige_manager_level', 0)}/5**\nWork and business income **+{data.get('prestige_manager_level', 0) * 20}%**",
-        f"**Starting Capital {data.get('prestige_capital_level', 0)}/4**\nExtra starting cash after the next prestige reset",
-        f"**Double Vein {data.get('prestige_double_ore_level', 0)}/5**\nChance to double each mining roll **{data.get('prestige_double_ore_level', 0) * 8}%**",
-        f"**Diamond Rush {data.get('prestige_ore_value_level', 0)}/5**\nOre sale value **+{data.get('prestige_ore_value_level', 0) * 20}%**",
-        f"**Clan Mining Efficiency**\nOre sale value **+{clan_bonus:.1f}%**" if clan else "**Clan Mining Efficiency**\nInactive — not in a clan",
+        f"**Pickaxe** {data.get('current_pickaxe', 'Stone Pickaxe')} • {get_mine_cooldown(target.id):.1f}s • {PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_min', 1)}–{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_max', 1)} rolls",
+        f"**Time Management L{tm_level}** • Mine −{mine_reduction:.1f}s • Work −{work_reduction}m",
+        f"**Business Optimization L{business_level}** • Collect +{business_bonus}%",
+        f"**Ore Miner L{miner_level}** • Ore value +{ore_bonus}%",
+        f"**Commanding Manager L{data.get('prestige_manager_level', 0)}** • Income +{data.get('prestige_manager_level', 0) * 20}%",
+        f"**Starting Capital L{data.get('prestige_capital_level', 0)}**",
+        f"**Double Vein L{data.get('prestige_double_ore_level', 0)}** • Double chance {data.get('prestige_double_ore_level', 0) * 8}%",
+        f"**Diamond Rush L{data.get('prestige_ore_value_level', 0)}** • Ore value +{data.get('prestige_ore_value_level', 0) * 20}%",
+        f"**Clan** • Ore value +{clan_bonus:.1f}%" if clan else "**Clan** • Inactive",
     ]
     if active_boosts:
         boost_lines = []
         for boost_id, expires_at in active_boosts.items():
             boost = BOOSTS.get(boost_id)
             if boost:
-                boost_lines.append(f"**{boost['name']}** — {boost['effect']} until <t:{int(datetime.fromisoformat(expires_at).timestamp())}:R>")
+                boost_lines.append(f"**{boost['name']}** • {boost['effect']} • <t:{int(datetime.fromisoformat(expires_at).timestamp())}:R>")
         if boost_lines:
-            lines.append("**Temporary Lapis Boosts**\n" + "\n".join(boost_lines))
+            lines.extend(boost_lines)
     else:
-        lines.append("**Temporary Lapis Boosts**\nInactive — buy them in `/shop boosts`")
-    embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n\n".join(lines), color=EMBED_COLOR)
+        lines.append("**Temporary boosts** • Inactive")
+    embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n".join(lines), color=EMBED_COLOR)
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
 
@@ -124,14 +123,13 @@ def build_stats_embed(target):
         title=f"Stats {target.name}",
         color=EMBED_COLOR,
     )
-    embed.add_field(name="Registered", value=registered, inline=False)
-    embed.add_field(name="Total earned", value=f"{user_data['total_earned']} {CURRENCY}", inline=False)
-    embed.add_field(name="Total spent", value=f"{user_data['total_spent']} {CURRENCY}", inline=False)
-    embed.add_field(name="Earned from /work", value=f"{user_data['work_earned']} {CURRENCY}", inline=False)
-    embed.add_field(name="Earned from /collect", value=f"{user_data['collect_earned']} {CURRENCY}", inline=False)
-    embed.add_field(name="Jobs completed", value=f"{user_data['work_count']}", inline=False)
-    embed.add_field(name="Successful mines", value=f"{user_data['mine_count']}", inline=False)
-    embed.add_field(name="Minigames played", value=f"{user_data['games_played']}", inline=False)
+    embed.description = (
+        f"Registered **{registered}**\n"
+        f"Earned **{user_data['total_earned']:,}{CURRENCY}** • Spent **{user_data['total_spent']:,}{CURRENCY}**\n"
+        f"Work **{user_data['work_earned']:,}{CURRENCY}** ({user_data['work_count']:,}) • "
+        f"Business **{user_data['collect_earned']:,}{CURRENCY}**\n"
+        f"Mines **{user_data['mine_count']:,}** • Games **{user_data['games_played']:,}**"
+    )
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
 
@@ -192,10 +190,11 @@ class ProfileShortcutButton(disnake.ui.Button):
             return
         if self.action == "mine":
             from phantycoon.cogs.mine import run_mine
-            await run_mine(inter)
+            await run_mine(inter, edit_message=True)
         else:
             from phantycoon.cogs.quests import build_quests_embed
-            await safe_send(inter, embed=build_quests_embed(inter.author.id), ephemeral=True)
+            from phantycoon.navigation import NavigationView
+            await safe_edit(inter, embed=build_quests_embed(inter.author.id), view=NavigationView())
 
 
 @bot.slash_command(name="profile", description="Show user profile")
