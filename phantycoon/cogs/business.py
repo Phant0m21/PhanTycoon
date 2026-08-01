@@ -12,9 +12,8 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_send
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
-from phantycoon.navigation import NavigationView
 
 # ==================== COLLECT ====================
 
@@ -90,4 +89,4 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
     quest_rewards += record_quest_event(ctx.author.id, "collect_income", total_income)
     add_quest_rewards_to_embed(embed, quest_rewards)
     
-    await safe_send(ctx, embed=embed, view=NavigationView())
+    await safe_send(ctx, embed=embed)

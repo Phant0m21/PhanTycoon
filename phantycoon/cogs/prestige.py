@@ -5,7 +5,7 @@ from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES
 from phantycoon.database import *
-from phantycoon.interactions import safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_embed, safe_send
 from phantycoon.shop_data import load_shop
 
 
@@ -82,7 +82,7 @@ def build_prestige_shop_embed(user):
         embed.add_field(
             name=f"{upgrade_data['name']} ({level}/{max_level})",
             value=upgrade_data["description"],
-            inline=True,
+            inline=False,
         )
 
     embed.set_thumbnail(url=user.display_avatar.url)
@@ -147,7 +147,7 @@ class PrestigeUpgradeButton(disnake.ui.Button):
         view.refresh_buttons()
         embed = build_prestige_shop_embed(inter.author)
         embed.set_footer(text=f"Purchased {upgrade['name']} level {level}")
-        await safe_edit(inter, embed=embed, view=view)
+        await safe_send(inter, embed=embed, view=view)
 
 
 @bot.slash_command(name="prestige", description="Prestige commands")

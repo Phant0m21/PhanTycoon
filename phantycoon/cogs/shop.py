@@ -12,7 +12,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP ====================
@@ -67,7 +67,7 @@ class ShopSelect(disnake.ui.Select):
             embed.description = "\n".join(lines)
                 
         embed.set_footer(text="Purchase with /buy")
-        await safe_edit(inter, embed=embed, view=self.view)
+        await safe_send(inter, embed=embed, view=ShopView(inter.author.id))
 
 
 class ShopView(disnake.ui.View):

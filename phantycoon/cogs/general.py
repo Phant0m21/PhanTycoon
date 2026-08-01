@@ -12,9 +12,8 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import LAPIS_EMOJI, ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.interactions import safe_defer, safe_send
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
-from phantycoon.navigation import NavigationView
 
 # ==================== COMMANDS ====================
 
@@ -38,7 +37,7 @@ async def balance(
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     
-    await safe_send(ctx, embed=embed, view=NavigationView())
+    await safe_send(ctx, embed=embed)
 
 
 @bot.slash_command(name="work", description="Earn cash")
@@ -81,6 +80,6 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
         quest_rewards += record_quest_event(ctx.author.id, "clan_xp", CLAN_WORK_XP)
     add_quest_rewards_to_embed(embed, quest_rewards)
     
-    await safe_send(ctx, embed=embed, view=NavigationView())
+    await safe_send(ctx, embed=embed)
 
 

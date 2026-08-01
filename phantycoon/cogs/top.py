@@ -13,7 +13,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 
 TOP_SORT_COLUMNS = {
     "balance",
@@ -164,7 +164,7 @@ class TopView(disnake.ui.View):
                 description="No users yet",
                 color=EMBED_COLOR
             )
-            await safe_edit(inter, embed=embed, view=self)
+            await safe_send(inter, embed=embed, view=TopView(inter.author.id, self.mode, self.sort_by, 1))
             return
         
         items_per_page = 10
@@ -222,7 +222,7 @@ class TopView(disnake.ui.View):
         if self.page < total_pages:
             self.add_item(TopPageButton("Next", "next", self.page))
         
-        await safe_edit(inter, embed=embed, view=self)
+        await safe_send(inter, embed=embed, view=TopView(inter.author.id, self.mode, self.sort_by, self.page))
     
 class TopToggleButton(disnake.ui.Button):
     def __init__(self, mode):
@@ -514,12 +514,12 @@ async def set_money(
     embed.add_field(
         name="Old balance",
         value=f"{old_wallet} {CURRENCY}",
-        inline=True
+        inline=False
     )
     embed.add_field(
         name="New balance",
         value=f"{amount} {CURRENCY}",
-        inline=True
+        inline=False
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     

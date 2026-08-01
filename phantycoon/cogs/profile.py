@@ -8,7 +8,7 @@ from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
 from phantycoon.database import get_active_boosts, get_user_businesses, get_user_clan, get_user_data
 from phantycoon.progression import BOOSTS
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 
 
 def get_clan_value(user_id):
@@ -27,17 +27,17 @@ def build_profile_embed(target):
     embed.add_field(
         name="Prestige",
         value=f"{user_data.get('prestige_level', 0)}",
-        inline=True,
+        inline=False,
     )
     embed.add_field(
         name="Clan",
         value=get_clan_value(target.id),
-        inline=True,
+        inline=False,
     )
     embed.add_field(
         name="Balance",
         value=f"{user_data['wallet']} {CURRENCY}\n{user_data['lapis']} {LAPIS_EMOJI}",
-        inline=True,
+        inline=False,
     )
 
     current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
@@ -45,14 +45,14 @@ def build_profile_embed(target):
     embed.add_field(
         name="Pickaxe",
         value=f"{pickaxe_emoji} {current_pickaxe}\nMine cooldown: **{get_mine_cooldown(target.id):.1f}s**",
-        inline=True,
+        inline=False,
     )
 
     businesses = get_user_businesses(target.id)
     embed.add_field(
         name="Active businesses",
         value="\n".join(businesses) if businesses else "None",
-        inline=True,
+        inline=False,
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
@@ -148,15 +148,13 @@ class ProfileView(disnake.ui.View):
         self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary))
         self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary))
         self.add_item(ProfileButton("Buffs", "buffs", disnake.ButtonStyle.primary))
-        self.add_item(ProfileShortcutButton("Mine", "mine"))
-        self.add_item(ProfileShortcutButton("Quests", "quests"))
 
     async def update_embed(self, inter: disnake.MessageInteraction):
         target = await inter.bot.fetch_user(self.target_id or inter.author.id)
         builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
         embed = builders[self.mode](target)
         self.update_buttons()
-        await safe_edit(inter, embed=embed, view=self)
+        await safe_send(inter, embed=embed, view=ProfileView(inter.author.id, target.id, self.mode))
 
 class ProfileButton(disnake.ui.Button):
     def __init__(self, label, mode, style):
@@ -173,28 +171,12 @@ class ProfileButton(disnake.ui.Button):
             view = ProfileView(inter.author.id, inter.author.id, self.mode)
             target = await inter.bot.fetch_user(inter.author.id)
             builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
-            await safe_edit(inter, embed=builders[self.mode](target), view=view)
+            await safe_send(inter, embed=builders[self.mode](target), view=view)
             return
         self.view.mode = self.mode
-        await self.view.update_embed(inter)
-
-
-class ProfileShortcutButton(disnake.ui.Button):
-    def __init__(self, label, action):
-        super().__init__(label=label, style=disnake.ButtonStyle.primary, custom_id=f"profile_{action}")
-        self.action = action
-
-    async def callback(self, inter):
-        if self.view.author_id is not None and inter.author.id != self.view.author_id:
-            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
-            return
-        if self.action == "mine":
-            from phantycoon.cogs.mine import run_mine
-            await run_mine(inter, edit_message=True)
-        else:
-            from phantycoon.cogs.quests import build_quests_embed
-            from phantycoon.navigation import NavigationView
-            await safe_edit(inter, embed=build_quests_embed(inter.author.id), view=NavigationView())
+        target = await inter.bot.fetch_user(self.view.target_id)
+        builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
+        await safe_send(inter, embed=builders[self.mode](target), view=ProfileView(inter.author.id, target.id, self.mode))
 
 
 @bot.slash_command(name="profile", description="Show user profile")

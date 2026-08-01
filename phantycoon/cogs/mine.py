@@ -12,7 +12,7 @@ from phantycoon.database import (
     grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
     update_user_inventory, update_user_wallet,
 )
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
 
@@ -48,7 +48,7 @@ def mine_embed(user, pickaxe_name, results, quest_rewards=None):
     return embed
 
 
-async def run_mine(inter, *, edit_message=False):
+async def run_mine(inter):
     if await block_if_captcha_active(inter):
         return
     can, next_time, _ = can_mine(inter.author.id)
@@ -77,11 +77,7 @@ async def run_mine(inter, *, edit_message=False):
         quest_rewards += record_quest_event(inter.author.id, "clan_xp", CLAN_MINE_XP)
     for ore_name, amount in results.items():
         quest_rewards += record_quest_event(inter.author.id, f"ore_{ore_name.lower()}", amount)
-    result_embed = mine_embed(inter.author, pickaxe_name, results, quest_rewards)
-    if edit_message:
-        await safe_edit(inter, embed=result_embed, view=MineView(inter.author.id))
-    else:
-        await safe_send(inter, embed=result_embed, view=MineView(inter.author.id))
+    await safe_send(inter, embed=mine_embed(inter.author, pickaxe_name, results, quest_rewards), view=MineView(inter.author.id))
     if captcha_triggered:
         await send_captcha(inter, captcha_code)
 
@@ -100,7 +96,7 @@ class MineView(disnake.ui.View):
 
     @disnake.ui.button(label="Mine again", style=disnake.ButtonStyle.primary, custom_id="mine:again")
     async def mine_button(self, button, inter):
-        await run_mine(inter, edit_message=True)
+        await run_mine(inter)
 
     @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.primary, custom_id="mine:sell")
     async def sell_ores_button(self, button, inter):
@@ -137,24 +133,7 @@ class MineView(disnake.ui.View):
         quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", total_earned)
         add_quest_rewards_to_embed(embed, quest_rewards)
         embed.set_thumbnail(url=inter.author.display_avatar.url)
-        await safe_edit(inter, embed=embed, view=MineView(inter.author.id))
-
-    @disnake.ui.button(label="Profile", style=disnake.ButtonStyle.primary, custom_id="mine:profile")
-    async def profile_button(self, button, inter):
-        from phantycoon.cogs.profile import ProfileView, build_profile_embed
-        await safe_edit(inter, embed=build_profile_embed(inter.author), view=ProfileView(inter.author.id, inter.author.id))
-
-    @disnake.ui.button(label="Quests", style=disnake.ButtonStyle.primary, custom_id="mine:quests")
-    async def quests_button(self, button, inter):
-        from phantycoon.cogs.quests import build_quests_embed
-        from phantycoon.navigation import NavigationView
-        await safe_edit(inter, embed=build_quests_embed(inter.author.id), view=NavigationView())
-
-    @disnake.ui.button(label="Shop", style=disnake.ButtonStyle.primary, custom_id="mine:shop")
-    async def shop_button(self, button, inter):
-        from phantycoon.cogs.shop import ShopView
-        embed = disnake.Embed(title="Shop", description="Select a category.", color=EMBED_COLOR)
-        await safe_edit(inter, embed=embed, view=ShopView(inter.author.id))
+        await safe_send(inter, embed=embed, view=MineView(inter.author.id))
 
 
 @bot.listen("on_ready")

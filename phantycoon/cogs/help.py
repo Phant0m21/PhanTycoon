@@ -2,7 +2,7 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.config import EMBED_COLOR
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 
 
 class HelpSelect(disnake.ui.Select):
@@ -45,7 +45,7 @@ class HelpSelect(disnake.ui.Select):
             embed.title = "Administration"
             embed.description = "`/money add` `/money remove` `/money set`\n`/ban add` `/ban list` `/unban` `/restart`"
 
-        await safe_edit(inter, embed=embed, view=self.view)
+        await safe_send(inter, embed=embed, view=HelpView(inter.author.id))
 
 
 class HelpView(disnake.ui.View):

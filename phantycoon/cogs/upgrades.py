@@ -12,7 +12,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.cogs.shop import shop
 from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
@@ -84,14 +84,14 @@ class UpgradesView(disnake.ui.View):
             embed.add_field(
                 name=f"{upgrade_data['name']}",
                 value=f"{effect_desc}\n{status}",
-                inline=True
+                inline=False
             )
         
         embed.set_thumbnail(url=inter.author.display_avatar.url)
         add_quest_rewards_to_embed(embed, quest_rewards or [])
         
         self.update_buttons()
-        await inter.message.edit(embed=embed, view=self)
+        await safe_send(inter, embed=embed, view=UpgradesView(inter.author.id))
     
 class UpgradeButton(disnake.ui.Button):
     def __init__(self, upgrade_id, label, style, disabled):
@@ -185,7 +185,7 @@ async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
         embed.add_field(
             name=f"{upgrade_data['name']}",
             value=f"{effect_desc}\n{status}",
-            inline=True
+            inline=False
         )
     
     embed.set_thumbnail(url=ctx.author.display_avatar.url)

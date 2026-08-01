@@ -7,7 +7,7 @@ from phantycoon.config import EMBED_COLOR
 from phantycoon.cogs.shop import shop
 from phantycoon.data import LAPIS_EMOJI
 from phantycoon.database import get_active_boosts, get_user_data, purchase_boost
-from phantycoon.interactions import safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_embed, safe_send
 from phantycoon.progression import BOOSTS, QUEST_DEFINITIONS, QUEST_DURATION, ensure_daily_quests
 
 
@@ -35,8 +35,7 @@ def build_quests_embed(user_id):
 
 @bot.slash_command(name="quests", description="View your three daily quests")
 async def quests(ctx: disnake.ApplicationCommandInteraction):
-    from phantycoon.navigation import NavigationView
-    await safe_send(ctx, embed=build_quests_embed(ctx.author.id), view=NavigationView())
+    await safe_send(ctx, embed=build_quests_embed(ctx.author.id))
 
 
 class BoostShopView(disnake.ui.View):
@@ -67,7 +66,7 @@ class BoostButton(disnake.ui.Button):
                 await safe_embed(inter, "Not enough Lapis Lazuli", f"You have **{balance}** {LAPIS_EMOJI}, but need **{boost['cost']}**.", ephemeral=True)
             return
         embed = build_boost_shop_embed(inter.author.id, f"Activated {boost['name']}")
-        await safe_edit(inter, embed=embed, view=BoostShopView(inter.author.id))
+        await safe_send(inter, embed=embed, view=BoostShopView(inter.author.id))
 
 
 @shop.sub_command(name="boosts", description="Buy temporary boosts with Lapis Lazuli")
@@ -87,6 +86,6 @@ def build_boost_shop_embed(user_id, notice=None):
         active_text = f"\nActive until <t:{int(datetime.fromisoformat(active[boost_id]).timestamp())}:R>" if boost_id in active else ""
         embed.add_field(
             name=f"{boost['name']} — {boost['cost']} {LAPIS_EMOJI}",
-            value=f"{boost['effect']} • {boost['minutes']} min{active_text}", inline=True,
+            value=f"{boost['effect']} • {boost['minutes']} min{active_text}", inline=False,
         )
     return embed

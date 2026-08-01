@@ -6,7 +6,7 @@ from disnake.ext import commands
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.database import *
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_embed, safe_send
 
 
 def format_clan_bonus(level):
@@ -52,27 +52,6 @@ async def build_clan_embed(user_id, mode="overview"):
     return embed
 
 
-class ClanInfoView(disnake.ui.View):
-    def __init__(self, author_id=None):
-        super().__init__(timeout=None)
-        self.author_id = author_id
-        for mode in ("overview", "members", "weekly"):
-            self.add_item(ClanInfoButton(mode.title(), mode))
-
-
-class ClanInfoButton(disnake.ui.Button):
-    def __init__(self, label, mode):
-        super().__init__(label=label, style=disnake.ButtonStyle.primary, custom_id=f"clan_info:{mode}")
-        self.mode = mode
-
-    async def callback(self, inter):
-        if self.view.author_id is not None and inter.author.id != self.view.author_id:
-            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
-            return
-        await safe_defer(inter, with_message=False)
-        await safe_edit(inter, embed=await build_clan_embed(inter.author.id, self.mode), view=ClanInfoView(inter.author.id))
-
-
 @bot.slash_command(name="clan", description="Clan commands")
 async def clan(ctx: disnake.ApplicationCommandInteraction):
     pass
@@ -99,9 +78,9 @@ async def clan_create(
         description=f"{ctx.author.mention} created a clan and became **Leader**.",
         color=EMBED_COLOR,
     )
-    embed.add_field(name="Cost", value=f"{CLAN_CREATE_COST:,} {CURRENCY}", inline=True)
-    embed.add_field(name="Access", value="Public", inline=True)
-    embed.add_field(name="Mining Efficiency", value=format_clan_bonus(clan_data["level"]), inline=True)
+    embed.add_field(name="Cost", value=f"{CLAN_CREATE_COST:,} {CURRENCY}", inline=False)
+    embed.add_field(name="Access", value="Public", inline=False)
+    embed.add_field(name="Mining Efficiency", value=format_clan_bonus(clan_data["level"]), inline=False)
     await safe_send(ctx, embed=embed)
 
 
@@ -164,7 +143,7 @@ async def clan_info(ctx: disnake.ApplicationCommandInteraction):
         await safe_embed(ctx, "Error", "You are not in a clan.", ephemeral=True)
         return
 
-    await safe_send(ctx, embed=await build_clan_embed(ctx.author.id), view=ClanInfoView(ctx.author.id))
+    await safe_send(ctx, embed=await build_clan_embed(ctx.author.id))
 
 
 @clan.sub_command(name="edit", description="Edit clan settings")

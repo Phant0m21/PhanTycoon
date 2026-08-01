@@ -12,7 +12,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
 
 # ==================== INVENTORY ====================
@@ -77,9 +77,7 @@ class InventorySelect(disnake.ui.Select):
                 f"Quantity: {quantity} pcs.\n"
                 "This prestige currency can only be spent in `/prestige shop`."
             )
-            back_view = disnake.ui.View(timeout=None)
-            back_view.add_item(disnake.ui.Button(label="Inventory", style=disnake.ButtonStyle.primary, custom_id="inventory_back"))
-            await safe_edit(inter, embed=embed, view=back_view)
+            await safe_send(inter, embed=embed)
             return
         
         view = disnake.ui.View(timeout=None)
@@ -109,9 +107,7 @@ class InventorySelect(disnake.ui.Select):
                 style=disnake.ButtonStyle.primary,
                 custom_id=f"sell_{item_name}"
             ))
-        view.add_item(disnake.ui.Button(label="Inventory", style=disnake.ButtonStyle.primary, custom_id="inventory_back"))
-        
-        await safe_edit(inter, embed=embed, view=view)
+        await safe_send(inter, embed=embed, view=view)
 
 
 @bot.slash_command(name="inventory", description="Show inventory")
@@ -175,25 +171,6 @@ async def inventory(
 
 @bot.listen("on_button_click")
 async def inventory_button_handler(inter: disnake.MessageInteraction):
-    if inter.data.custom_id == "inventory_back":
-        inventory = get_user_inventory(inter.author.id)
-        items_list = []
-        for item_name, quantity in inventory.items():
-            if quantity <= 0:
-                continue
-            if item_name in ORES:
-                items_list.append(f"{ORES[item_name]['emoji']} {item_name} x{quantity}")
-            elif item_name in PICKAXES:
-                items_list.append(f"{PICKAXES[item_name]['emoji']} {item_name} x{quantity}")
-            elif item_name == PRESTIGE_TOKEN_NAME:
-                items_list.append(f"{PRESTIGE_TOKEN_EMOJI} {item_name} x{quantity}")
-        embed = disnake.Embed(title=f"Inventory {inter.author.name}", description="\n".join(items_list) or "Inventory is empty", color=EMBED_COLOR)
-        embed.set_thumbnail(url=inter.author.display_avatar.url)
-        view = disnake.ui.View(timeout=None)
-        if inventory:
-            view.add_item(InventorySelect(inter.author.id, inventory, inter.author.id))
-        await safe_edit(inter, embed=embed, view=view)
-        return
     if not inter.data.custom_id.startswith(("use_", "sell_")):
         return
     
@@ -229,9 +206,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                 description=f"You equipped **{item_name}**!",
                 color=EMBED_COLOR
             )
-            back_view = disnake.ui.View(timeout=None)
-            back_view.add_item(disnake.ui.Button(label="Inventory", style=disnake.ButtonStyle.primary, custom_id="inventory_back"))
-            await safe_edit(inter, embed=embed, view=back_view)
+            await safe_send(inter, embed=embed)
             return
         
         await safe_embed(inter, "Error", "This item cannot be used.", ephemeral=True)
@@ -290,6 +265,4 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             quest_rewards = record_quest_event(inter.author.id, "ore_sales", 1)
             quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", price)
             add_quest_rewards_to_embed(embed, quest_rewards)
-        back_view = disnake.ui.View(timeout=None)
-        back_view.add_item(disnake.ui.Button(label="Inventory", style=disnake.ButtonStyle.primary, custom_id="inventory_back"))
-        await safe_edit(inter, embed=embed, view=back_view)
+        await safe_send(inter, embed=embed)
