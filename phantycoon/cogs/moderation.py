@@ -7,7 +7,7 @@ from phantycoon.bot import bot
 from phantycoon.config import DEV_ID, EMBED_COLOR
 from phantycoon.database import (
     clear_all_captcha_state, create_bot_ban, get_bot_ban,
-    get_captcha_status, is_captcha_banned, remove_bot_ban,
+    get_captcha_status, is_captcha_banned, list_active_bans, remove_bot_ban,
 )
 from phantycoon.interactions import safe_embed, safe_send
 
@@ -55,7 +55,12 @@ def get_expiration(amount, unit):
     return datetime.now(timezone.utc) + timedelta(**{unit: amount})
 
 
-@bot.slash_command(name="ban", description="Ban a user from using the bot")
+@bot.slash_command(name="ban", description="Bot ban management")
+async def ban(ctx: disnake.ApplicationCommandInteraction):
+    pass
+
+
+@ban.sub_command(name="add", description="Ban a user from using the bot")
 async def ban_user(
     ctx: disnake.ApplicationCommandInteraction,
     user: disnake.User = commands.Param(description="User to ban"),
@@ -98,6 +103,32 @@ async def ban_user(
 
     notify_text = "DM delivered" if dm_delivered else ("DM could not be delivered" if notify else "DM disabled")
     await safe_embed(ctx, "User banned", f"{user.mention} was banned {time_text}.\n**Reason:** {full_reason}\n**Notification:** {notify_text}", ephemeral=True)
+
+
+@ban.sub_command(name="list", description="Show all active bot and captcha bans")
+async def ban_list(
+    ctx: disnake.ApplicationCommandInteraction,
+    page: int = commands.Param(default=1, ge=1, description="Page number"),
+):
+    if not is_owner(ctx):
+        await safe_embed(ctx, "Access denied", "Only bot developers can use this command.", ephemeral=True)
+        return
+    bans = list_active_bans()
+    if not bans:
+        await safe_embed(ctx, "Active bans", "There are no active bans.", ephemeral=True)
+        return
+    per_page = 10
+    total_pages = (len(bans) + per_page - 1) // per_page
+    page = min(page, total_pages)
+    lines = []
+    for index, entry in enumerate(bans[(page - 1) * per_page:page * per_page], start=(page - 1) * per_page + 1):
+        until = "Permanent" if entry["is_permanent"] else f"<t:{int(datetime.fromisoformat(entry['expires_at']).timestamp())}:R>"
+        source = "Captcha" if entry["source"] == "captcha" else "Moderation"
+        moderator = f" • by <@{entry['moderator_id']}>" if entry["moderator_id"] else ""
+        lines.append(f"**{index}.** <@{entry['user_id']}> (`{entry['user_id']}`)\n{source} • {until}{moderator}\nReason: {entry['reason']}")
+    embed = disnake.Embed(title=f"Active bans — {len(bans)}", description="\n\n".join(lines), color=EMBED_COLOR)
+    embed.set_footer(text=f"Page {page}/{total_pages}")
+    await safe_send(ctx, embed=embed, ephemeral=True)
 
 
 @bot.slash_command(name="unban", description="Remove bot and captcha bans from a user")

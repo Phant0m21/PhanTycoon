@@ -110,7 +110,8 @@ def init_db():
             captcha_regens INTEGER DEFAULT 0,
             captcha_banned_until TEXT DEFAULT NULL,
             captcha_mine_actions INTEGER DEFAULT 0,
-            captcha_mine_limit INTEGER DEFAULT 0
+            captcha_mine_limit INTEGER DEFAULT 0,
+            lapis INTEGER DEFAULT 0
         )
     """)
     
@@ -209,6 +210,33 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS daily_quests (
+            user_id TEXT NOT NULL,
+            slot INTEGER NOT NULL,
+            quest_key TEXT NOT NULL,
+            assigned_at TEXT NOT NULL,
+            progress INTEGER NOT NULL DEFAULT 0,
+            target_1 INTEGER NOT NULL,
+            target_2 INTEGER NOT NULL,
+            target_3 INTEGER NOT NULL,
+            reward_1 INTEGER NOT NULL,
+            reward_2 INTEGER NOT NULL,
+            reward_3 INTEGER NOT NULL,
+            claimed_tier INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, slot)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS active_boosts (
+            user_id TEXT NOT NULL,
+            boost_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, boost_id)
+        )
+    """)
+
     cursor.execute("PRAGMA table_info(users)")
     existing_columns = {row["name"] for row in cursor.fetchall()}
     required_columns = {
@@ -241,6 +269,7 @@ def init_db():
         "captcha_banned_until": "TEXT DEFAULT NULL",
         "captcha_mine_actions": "INTEGER DEFAULT 0",
         "captcha_mine_limit": "INTEGER DEFAULT 0",
+        "lapis": "INTEGER DEFAULT 0",
     }
     for column, definition in required_columns.items():
         if column not in existing_columns:
@@ -255,11 +284,16 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_invites_user_id ON clan_invites(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bot_bans_expires_at ON bot_bans(expires_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_owner_status ON tickets(owner_id, status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_quests_user ON daily_quests(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_active_boosts_expiry ON active_boosts(expires_at)")
 
     for old_name, new_name in NAME_MIGRATIONS.items():
         cursor.execute("UPDATE users SET current_pickaxe = ? WHERE current_pickaxe = ?", (new_name, old_name))
         cursor.execute("UPDATE inventory SET item_name = ? WHERE item_name = ?", (new_name, old_name))
         cursor.execute("UPDATE businesses SET business_name = ? WHERE business_name = ?", (new_name, old_name))
+    cursor.execute(
+        "DELETE FROM inventory WHERE item_name IN ('Energy Drink', 'Vitamins', 'Insurance', 'Golden Crown', 'Private Jet')"
+    )
     
     conn.commit()
     conn.close()
@@ -274,7 +308,7 @@ def get_user_data(user_id):
                work_count, mine_count, games_played, current_pickaxe,
                time_management_level, business_optimization_level, miner_boost_level,
                prestige_level, prestige_manager_level, prestige_capital_level,
-               prestige_double_ore_level, prestige_ore_value_level
+               prestige_double_ore_level, prestige_ore_value_level, lapis
         FROM users WHERE user_id = ?
     """, (str(user_id),))
     result = cursor.fetchone()
@@ -302,7 +336,8 @@ def get_user_data(user_id):
             "prestige_manager_level": 0,
             "prestige_capital_level": 0,
             "prestige_double_ore_level": 0,
-            "prestige_ore_value_level": 0
+            "prestige_ore_value_level": 0,
+            "lapis": 0
         }
     
     conn.close()
@@ -328,8 +363,113 @@ def get_user_data(user_id):
         "prestige_manager_level": result[18] if result[18] is not None else 0,
         "prestige_capital_level": result[19] if result[19] is not None else 0,
         "prestige_double_ore_level": result[20] if result[20] is not None else 0,
-        "prestige_ore_value_level": result[21] if result[21] is not None else 0
+        "prestige_ore_value_level": result[21] if result[21] is not None else 0,
+        "lapis": result[22] if result[22] is not None else 0
     }
+
+def get_daily_quests(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM daily_quests WHERE user_id = ? ORDER BY slot", (str(user_id),))
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+def replace_daily_quests(user_id, quests):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM daily_quests WHERE user_id = ?", (str(user_id),))
+    for quest in quests:
+        cursor.execute(
+            """
+            INSERT INTO daily_quests
+                (user_id, slot, quest_key, assigned_at, target_1, target_2, target_3,
+                 reward_1, reward_2, reward_3)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(user_id), quest["slot"], quest["quest_key"], quest["assigned_at"],
+                *quest["targets"], *quest["rewards"],
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+def advance_daily_quests(user_id, event_key, amount):
+    if amount <= 0:
+        return []
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM daily_quests WHERE user_id = ? AND quest_key = ?",
+        (str(user_id), event_key),
+    )
+    rewards = []
+    for row in cursor.fetchall():
+        new_progress = row["progress"] + int(amount)
+        new_tier = row["claimed_tier"]
+        lapis_reward = 0
+        for tier in range(row["claimed_tier"] + 1, 4):
+            if new_progress < row[f"target_{tier}"]:
+                break
+            lapis_reward += row[f"reward_{tier}"]
+            new_tier = tier
+            rewards.append({"quest_key": event_key, "tier": tier, "lapis": row[f"reward_{tier}"]})
+        cursor.execute(
+            "UPDATE daily_quests SET progress = ?, claimed_tier = ? WHERE user_id = ? AND slot = ?",
+            (new_progress, new_tier, str(user_id), row["slot"]),
+        )
+        if lapis_reward:
+            cursor.execute("UPDATE users SET lapis = lapis + ? WHERE user_id = ?", (lapis_reward, str(user_id)))
+    conn.commit()
+    conn.close()
+    return rewards
+
+def get_active_boosts(user_id):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM active_boosts WHERE expires_at <= ?", (now,))
+    cursor.execute("SELECT boost_id, expires_at FROM active_boosts WHERE user_id = ?", (str(user_id),))
+    boosts = {row["boost_id"]: row["expires_at"] for row in cursor.fetchall()}
+    conn.commit()
+    conn.close()
+    return boosts
+
+def purchase_boost(user_id, boost_id, cost, duration_seconds):
+    get_user_data(user_id)
+    now = datetime.now(timezone.utc)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT lapis FROM users WHERE user_id = ?", (str(user_id),))
+    balance = cursor.fetchone()["lapis"]
+    if balance < cost:
+        conn.close()
+        return False, balance, None
+    cursor.execute(
+        "SELECT expires_at FROM active_boosts WHERE user_id = ? AND boost_id = ?",
+        (str(user_id), boost_id),
+    )
+    row = cursor.fetchone()
+    if row:
+        existing = datetime.fromisoformat(row["expires_at"])
+        if existing.tzinfo is None:
+            existing = existing.replace(tzinfo=timezone.utc)
+        if existing > now:
+            conn.close()
+            return False, balance, existing
+    expires_at = now + timedelta(seconds=duration_seconds)
+    cursor.execute("UPDATE users SET lapis = lapis - ? WHERE user_id = ?", (cost, str(user_id)))
+    cursor.execute(
+        """
+        INSERT INTO active_boosts (user_id, boost_id, expires_at) VALUES (?, ?, ?)
+        ON CONFLICT(user_id, boost_id) DO UPDATE SET expires_at = excluded.expires_at
+        """,
+        (str(user_id), boost_id, expires_at.isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return True, balance - cost, expires_at
 
 def update_user_wallet(user_id, new_wallet):
     conn = get_db()
@@ -505,6 +645,36 @@ def remove_bot_ban(user_id):
     conn.commit()
     conn.close()
     return removed
+
+def list_active_bans():
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM bot_bans WHERE is_permanent = 0 AND expires_at IS NOT NULL AND expires_at <= ?",
+        (now,),
+    )
+    cursor.execute("SELECT * FROM bot_bans ORDER BY created_at DESC")
+    bot_bans = [dict(row) | {"source": "moderation"} for row in cursor.fetchall()]
+    cursor.execute(
+        """
+        SELECT user_id, captcha_banned_until AS expires_at
+        FROM users WHERE captcha_banned_until IS NOT NULL AND captcha_banned_until > ?
+        ORDER BY captcha_banned_until DESC
+        """,
+        (now,),
+    )
+    captcha_bans = [
+        {
+            "user_id": row["user_id"], "moderator_id": None,
+            "reason": "Failed Visual Anti-Bot Captcha", "created_at": None,
+            "expires_at": row["expires_at"], "is_permanent": 0, "source": "captcha",
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.commit()
+    conn.close()
+    return bot_bans + captcha_bans
 
 def clear_all_captcha_state(user_id):
     get_user_data(user_id)
@@ -1138,6 +1308,8 @@ def prestige_reset_user(user_id):
         (str(user_id), PRESTIGE_TOKEN_NAME, token_quantity),
     )
     cursor.execute("DELETE FROM businesses WHERE user_id = ?", (str(user_id),))
+    cursor.execute("DELETE FROM daily_quests WHERE user_id = ?", (str(user_id),))
+    cursor.execute("DELETE FROM active_boosts WHERE user_id = ?", (str(user_id),))
     cursor.execute(
         """
         UPDATE users
@@ -1158,6 +1330,7 @@ def prestige_reset_user(user_id):
             time_management_level = 0,
             business_optimization_level = 0,
             miner_boost_level = 0,
+            lapis = 0,
             prestige_level = ?
         WHERE user_id = ?
         """,
@@ -1249,6 +1422,8 @@ def can_mine(user_id):
             mine_reduction += levels[i]["mine_reduction"]
     
     final_cooldown = max(0.5, base_cooldown - mine_reduction)
+    if "mine_haste" in get_active_boosts(user_id):
+        final_cooldown = max(0.5, final_cooldown * 0.65)
     next_mine = last_mine + timedelta(seconds=final_cooldown)
     
     if datetime.now(timezone.utc) >= next_mine:
@@ -1281,10 +1456,13 @@ def get_mine_result(pickaxe_name, user_id=None):
     rolls = random.randint(pickaxe.get("rolls_min", 1), pickaxe.get("rolls_max", 1))
     user_data = get_user_data(user_id) if user_id is not None else {}
     double_chance = user_data.get("prestige_double_ore_level", 0) * 8
+    mining_frenzy = user_id is not None and "mining_frenzy" in get_active_boosts(user_id)
     for _ in range(rolls):
         selected_ore = random.choices(available_ores, weights=weights, k=1)[0]
         amount = random.randint(pickaxe["amount_min"], pickaxe["amount_max"])
         if double_chance > 0 and random.random() * 100 < double_chance:
             amount *= 2
+        if mining_frenzy:
+            amount = max(1, round(amount * 1.5))
         results[selected_ore] = results.get(selected_ore, 0) + amount
     return results

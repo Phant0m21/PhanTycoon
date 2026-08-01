@@ -13,20 +13,11 @@ def load_shop():
                 "Nightclub": {"price": 50000, "income": 2800, "emoji": "💃", "category": "business"},
                 "Casino": {"price": 150000, "income": 9000, "emoji": "🎰", "category": "business"}
             },
-            "consumables": {
-                "Energy Drink": {"price": 500, "effect": "reset_work", "emoji": "🥤", "category": "consumables", "description": "Resets the /work cooldown"},
-                "Vitamins": {"price": 900, "effect": "work_boost", "emoji": "💊", "category": "consumables", "description": "Your next 3 work shifts pay +45%"},
-                "Insurance": {"price": 2500, "effect": "insurance", "emoji": "📋", "category": "consumables", "description": "Protects you from minigame losses"}
-            },
             "pickaxes": {
-                "Iron Pickaxe": {"price": 15000, "emoji": "<:ironpickaxe:1522995651095298129>", "category": "pickaxes"},
-                "Golden Pickaxe": {"price": 75000, "emoji": "<:goldenpickaxe:1522995649828618292>", "category": "pickaxes"},
-                "Diamond Pickaxe": {"price": 350000, "emoji": "<:diamondpickaxe:1522995648511868928>", "category": "pickaxes"},
-                "Netherite Pickaxe": {"price": 1500000, "emoji": "<:netheritepickaxe:1522995647073226843>", "category": "pickaxes"}
-            },
-            "other": {
-                "Golden Crown": {"price": 1000000, "emoji": "👑", "category": "other", "description": "Profile flex cosmetic"},
-                "Private Jet": {"price": 10000000, "emoji": "🛩️", "category": "other", "description": "Profile flex cosmetic"}
+                "Iron Pickaxe": {"price": 6000, "emoji": "<:ironpickaxe:1522995651095298129>", "category": "pickaxes"},
+                "Golden Pickaxe": {"price": 25000, "emoji": "<:goldenpickaxe:1522995649828618292>", "category": "pickaxes"},
+                "Diamond Pickaxe": {"price": 100000, "emoji": "<:diamondpickaxe:1522995648511868928>", "category": "pickaxes"},
+                "Netherite Pickaxe": {"price": 400000, "emoji": "<:netheritepickaxe:1522995647073226843>", "category": "pickaxes"}
             }
         }
         with open(SHOP_FILE, "w", encoding="utf-8") as f:

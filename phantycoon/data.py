@@ -83,6 +83,7 @@ ORES = {
 
 PRESTIGE_TOKEN_NAME = "Ender Eye"
 PRESTIGE_TOKEN_EMOJI = "<:Eye_of_Ender:1527862845205643314>"
+LAPIS_EMOJI = "<:Lapis_Lazuli:1533083418437484656>"
 
 PRESTIGE_UPGRADES = {
     "commanding_manager": {

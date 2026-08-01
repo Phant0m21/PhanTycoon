@@ -5,9 +5,9 @@ from disnake.ext import commands
 
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
-from phantycoon.data import PICKAXES, UPGRADES
-from phantycoon.database import get_user_businesses, get_user_clan, get_user_data
-from phantycoon.state import active_buffs
+from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
+from phantycoon.database import get_active_boosts, get_user_businesses, get_user_clan, get_user_data
+from phantycoon.progression import BOOSTS
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 
@@ -27,17 +27,17 @@ def build_profile_embed(target):
     embed.add_field(
         name="Prestige",
         value=f"{user_data.get('prestige_level', 0)}",
-        inline=False,
+        inline=True,
     )
     embed.add_field(
         name="Clan",
         value=get_clan_value(target.id),
-        inline=False,
+        inline=True,
     )
     embed.add_field(
         name="Balance",
-        value=f"{user_data['wallet']} {CURRENCY}",
-        inline=False,
+        value=f"{user_data['wallet']} {CURRENCY}\n{user_data['lapis']} {LAPIS_EMOJI}",
+        inline=True,
     )
 
     current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
@@ -45,14 +45,14 @@ def build_profile_embed(target):
     embed.add_field(
         name="Pickaxe",
         value=f"{pickaxe_emoji} {current_pickaxe}\nMine cooldown: **{get_mine_cooldown(target.id):.1f}s**",
-        inline=False,
+        inline=True,
     )
 
     businesses = get_user_businesses(target.id)
     embed.add_field(
         name="Active businesses",
         value="\n".join(businesses) if businesses else "None",
-        inline=False,
+        inline=True,
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
@@ -63,7 +63,10 @@ def get_mine_cooldown(user_id):
     base = PICKAXES.get(user_data.get("current_pickaxe", "Stone Pickaxe"), {}).get("cooldown", 4.2)
     level = user_data.get("time_management_level", 0)
     reduction = sum(row["mine_reduction"] for row in UPGRADES["time_management"]["levels"][:level])
-    return max(0.5, base - reduction)
+    cooldown = max(0.5, base - reduction)
+    if "mine_haste" in get_active_boosts(user_id):
+        cooldown = max(0.5, cooldown * BOOSTS["mine_haste"]["value"])
+    return cooldown
 
 
 def build_buffs_embed(target):
@@ -78,7 +81,7 @@ def build_buffs_embed(target):
     ore_bonus = sum(row["ore_bonus"] for row in UPGRADES["miner_boost"]["levels"][:miner_level])
     clan = get_user_clan(target.id)
     clan_bonus = clan["level"] * 0.5 if clan else 0
-    vitamin_uses = active_buffs.get(target.id, {}).get("remaining", 0)
+    active_boosts = get_active_boosts(target.id)
 
     lines = [
         f"**Pickaxe — {data.get('current_pickaxe', 'Stone Pickaxe')}**\nMine cooldown: **{get_mine_cooldown(target.id):.1f}s**; multi-find rolls: "
@@ -91,8 +94,17 @@ def build_buffs_embed(target):
         f"**Double Vein {data.get('prestige_double_ore_level', 0)}/5**\nChance to double each mining roll **{data.get('prestige_double_ore_level', 0) * 8}%**",
         f"**Diamond Rush {data.get('prestige_ore_value_level', 0)}/5**\nOre sale value **+{data.get('prestige_ore_value_level', 0) * 20}%**",
         f"**Clan Mining Efficiency**\nOre sale value **+{clan_bonus:.1f}%**" if clan else "**Clan Mining Efficiency**\nInactive — not in a clan",
-        f"**Vitamins**\nWork income **+45%** for the next **{vitamin_uses}** shifts" if vitamin_uses else "**Vitamins**\nInactive",
     ]
+    if active_boosts:
+        boost_lines = []
+        for boost_id, expires_at in active_boosts.items():
+            boost = BOOSTS.get(boost_id)
+            if boost:
+                boost_lines.append(f"**{boost['name']}** — {boost['effect']} until <t:{int(datetime.fromisoformat(expires_at).timestamp())}:R>")
+        if boost_lines:
+            lines.append("**Temporary Lapis Boosts**\n" + "\n".join(boost_lines))
+    else:
+        lines.append("**Temporary Lapis Boosts**\nInactive — buy them in `/shop boosts`")
     embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n\n".join(lines), color=EMBED_COLOR)
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
@@ -125,8 +137,8 @@ def build_stats_embed(target):
 
 
 class ProfileView(disnake.ui.View):
-    def __init__(self, author_id, target_id, mode="profile"):
-        super().__init__(timeout=60)
+    def __init__(self, author_id, target_id=None, mode="profile"):
+        super().__init__(timeout=None)
         self.author_id = author_id
         self.target_id = target_id
         self.mode = mode
@@ -135,27 +147,18 @@ class ProfileView(disnake.ui.View):
 
     def update_buttons(self):
         self.clear_items()
-        self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary if self.mode == "profile" else disnake.ButtonStyle.secondary))
-        self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary if self.mode == "stats" else disnake.ButtonStyle.secondary))
-        self.add_item(ProfileButton("Buffs", "buffs", disnake.ButtonStyle.primary if self.mode == "buffs" else disnake.ButtonStyle.secondary))
+        self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary))
+        self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary))
+        self.add_item(ProfileButton("Buffs", "buffs", disnake.ButtonStyle.primary))
+        self.add_item(ProfileShortcutButton("Mine", "⛏️", "mine"))
+        self.add_item(ProfileShortcutButton("Quests", "📜", "quests"))
 
     async def update_embed(self, inter: disnake.MessageInteraction):
-        target = await inter.bot.fetch_user(self.target_id)
+        target = await inter.bot.fetch_user(self.target_id or inter.author.id)
         builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
         embed = builders[self.mode](target)
         self.update_buttons()
         await safe_edit(inter, embed=embed, view=self)
-
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        if not self.message:
-            return
-        try:
-            await self.message.edit(view=self)
-        except disnake.HTTPException:
-            pass
-
 
 class ProfileButton(disnake.ui.Button):
     def __init__(self, label, mode, style):
@@ -163,13 +166,36 @@ class ProfileButton(disnake.ui.Button):
         self.mode = mode
 
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.view.author_id:
+        if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
 
         await safe_defer(inter, with_message=False)
+        if self.view.author_id is None:
+            view = ProfileView(inter.author.id, inter.author.id, self.mode)
+            target = await inter.bot.fetch_user(inter.author.id)
+            builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
+            await safe_edit(inter, embed=builders[self.mode](target), view=view)
+            return
         self.view.mode = self.mode
         await self.view.update_embed(inter)
+
+
+class ProfileShortcutButton(disnake.ui.Button):
+    def __init__(self, label, emoji, action):
+        super().__init__(label=label, emoji=emoji, style=disnake.ButtonStyle.primary, custom_id=f"profile_{action}")
+        self.action = action
+
+    async def callback(self, inter):
+        if self.view.author_id is not None and inter.author.id != self.view.author_id:
+            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
+            return
+        if self.action == "mine":
+            from phantycoon.cogs.mine import run_mine
+            await run_mine(inter)
+        else:
+            from phantycoon.cogs.quests import build_quests_embed
+            await safe_send(inter, embed=build_quests_embed(inter.author.id), ephemeral=True)
 
 
 @bot.slash_command(name="profile", description="Show user profile")

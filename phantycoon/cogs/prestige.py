@@ -7,7 +7,6 @@ from phantycoon.data import PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME,
 from phantycoon.database import *
 from phantycoon.interactions import safe_edit, safe_embed, safe_send
 from phantycoon.shop_data import load_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 
 
 def get_next_prestige_requirements(user_data):
@@ -83,7 +82,7 @@ def build_prestige_shop_embed(user):
         embed.add_field(
             name=f"{upgrade_data['name']} ({level}/{max_level})",
             value=upgrade_data["description"],
-            inline=False,
+            inline=True,
         )
 
     embed.set_thumbnail(url=user.display_avatar.url)
@@ -92,9 +91,13 @@ def build_prestige_shop_embed(user):
 
 class PrestigeShopView(disnake.ui.View):
     def __init__(self, author_id):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.author_id = author_id
-        self.refresh_buttons()
+        if author_id is None:
+            for upgrade_id, upgrade_data in PRESTIGE_UPGRADES.items():
+                self.add_item(PrestigeUpgradeButton(upgrade_id, upgrade_data["name"], False))
+        else:
+            self.refresh_buttons()
 
     def refresh_buttons(self):
         self.clear_items()
@@ -106,7 +109,7 @@ class PrestigeShopView(disnake.ui.View):
                 PrestigeUpgradeButton(
                     upgrade_id=upgrade_id,
                     label=f"{upgrade_data['name']} ({level}/{max_level})",
-                    disabled=level >= max_level,
+                    disabled=False,
                 )
             )
 
@@ -122,7 +125,7 @@ class PrestigeUpgradeButton(disnake.ui.Button):
         self.upgrade_id = upgrade_id
 
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.view.author_id:
+        if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your prestige shop.", ephemeral=True)
             return
 
@@ -140,9 +143,10 @@ class PrestigeUpgradeButton(disnake.ui.Button):
                 await safe_embed(inter, "Error", "This upgrade is already maxed.", ephemeral=True)
             return
 
-        self.view.refresh_buttons()
+        view = PrestigeShopView(inter.author.id) if self.view.author_id is None else self.view
+        view.refresh_buttons()
         embed = build_prestige_shop_embed(inter.author)
-        await safe_edit(inter, embed=embed, view=self.view)
+        await safe_edit(inter, embed=embed, view=view)
         await safe_embed(
             inter,
             "Success",
@@ -173,8 +177,6 @@ async def prestige_reset(ctx: disnake.ApplicationCommandInteraction):
         return
 
     new_prestige, token_count, starting_cash = prestige_reset_user(ctx.author.id)
-    active_buffs.pop(ctx.author.id, None)
-    collect_cooldowns.pop(ctx.author.id, None)
 
     embed = disnake.Embed(
         title="Prestige Reset Complete",

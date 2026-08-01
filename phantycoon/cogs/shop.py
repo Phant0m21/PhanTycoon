@@ -12,8 +12,8 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP ====================
 
@@ -22,14 +22,12 @@ class ShopSelect(disnake.ui.Select):
         self.author_id = author_id
         options = [
             disnake.SelectOption(label="🏢 Businesses", value="business", description="Passive income"),
-            disnake.SelectOption(label="⚡ Consumables", value="consumables", description="One-use items"),
-            disnake.SelectOption(label="⛏️ Pickaxes", value="pickaxes", description="Upgrade mining"),
-            disnake.SelectOption(label="💎 Other", value="other", description="Visual items")
+            disnake.SelectOption(label="⛏️ Pickaxes", value="pickaxes", description="Upgrade mining")
         ]
         super().__init__(placeholder="Choose a category", options=options, custom_id="shop_select")
     
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.author_id:
+        if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
@@ -55,19 +53,6 @@ class ShopSelect(disnake.ui.Select):
                     inline=False
                 )
                 
-        elif category == "consumables":
-            embed = disnake.Embed(
-                title="⚡ Consumables",
-                description="One-use inventory items",
-                color=EMBED_COLOR
-            )
-            for name, data in items.items():
-                embed.add_field(
-                    name=f"{data['emoji']} {name} - {data['price']} {CURRENCY}",
-                    value=data.get("description", ""),
-                    inline=False
-                )
-        
         elif category == "pickaxes":
             embed = disnake.Embed(
                 title="⛏️ Pickaxes",
@@ -86,26 +71,13 @@ class ShopSelect(disnake.ui.Select):
                     inline=False
                 )
                 
-        elif category == "other":
-            embed = disnake.Embed(
-                title="💎 Other",
-                description="Profile flex items",
-                color=EMBED_COLOR
-            )
-            for name, data in items.items():
-                embed.add_field(
-                    name=f"{data['emoji']} {name} - {data['price']} {CURRENCY}",
-                    value=data.get("description", ""),
-                    inline=False
-                )
-        
         embed.set_footer(text="Use `/buy` to purchase an item")
         await safe_edit(inter, embed=embed, view=self.view)
 
 
 class ShopView(disnake.ui.View):
     def __init__(self, author_id):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.add_item(ShopSelect(author_id))
 
 
@@ -205,27 +177,6 @@ async def buy(
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
-    elif found_category == "consumables":
-        await safe_defer(ctx)
-        update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
-        update_stats(ctx.author.id, total_spent=total_price)
-
-        inventory = get_user_inventory(ctx.author.id)
-        inventory[found_item] = inventory.get(found_item, 0) + quantity
-        update_user_inventory(ctx.author.id, inventory)
-        
-        embed = disnake.Embed(
-            title="Purchase",
-            description=f"{ctx.author.mention} bought **{found_item}** x{quantity} for {total_price} {CURRENCY}",
-            color=EMBED_COLOR
-        )
-        embed.add_field(
-            name="Now in inventory",
-            value=f"{inventory[found_item]} pcs.",
-            inline=False
-        )
-        embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        
     elif found_category == "pickaxes":
         # Check whether the pickaxe is already owned
         inventory = get_user_inventory(ctx.author.id)
@@ -258,25 +209,5 @@ async def buy(
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
-    else:  # other
-        await safe_defer(ctx)
-        update_user_wallet(ctx.author.id, user_data["wallet"] - total_price)
-        update_stats(ctx.author.id, total_spent=total_price)
-
-        inventory = get_user_inventory(ctx.author.id)
-        inventory[found_item] = inventory.get(found_item, 0) + quantity
-        update_user_inventory(ctx.author.id, inventory)
-        
-        embed = disnake.Embed(
-            title="Purchase",
-            description=f"{ctx.author.mention} bought **{found_item}** x{quantity} for {total_price} {CURRENCY}",
-            color=EMBED_COLOR
-        )
-        embed.add_field(
-            name="Now in inventory",
-            value=f"{inventory[found_item]} pcs.",
-            inline=False
-        )
-        embed.set_thumbnail(url=ctx.author.display_avatar.url)
-    
+    add_quest_rewards_to_embed(embed, record_quest_event(ctx.author.id, "cash_spent", total_price))
     await safe_send(ctx, embed=embed)

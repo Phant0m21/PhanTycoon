@@ -9,11 +9,12 @@ from disnake.ext import commands
 
 from phantycoon.bot import bot
 from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
-from phantycoon.data import ORES, PICKAXES, UPGRADES
+from phantycoon.data import LAPIS_EMOJI, ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.navigation import NavigationView
 
 # ==================== COMMANDS ====================
 
@@ -32,12 +33,12 @@ async def balance(
     )
     embed.add_field(
         name="Balance",
-        value=f"```\n{user_data['wallet']}\n```",
+        value=f"```\n{user_data['wallet']} {CURRENCY}\n```\n{user_data['lapis']} {LAPIS_EMOJI}",
         inline=False
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     
-    await safe_send(ctx, embed=embed)
+    await safe_send(ctx, embed=embed, view=NavigationView())
 
 
 @bot.slash_command(name="work", description="Earn cash")
@@ -56,27 +57,17 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     await safe_defer(ctx)
     earnings = random.randint(WORK_MIN, WORK_MAX)
     
-    # Vitamin boost check
-    if ctx.author.id in active_buffs:
-        boost_data = active_buffs[ctx.author.id]
-        if boost_data["remaining"] > 0:
-            boost_percent = 45
-            bonus = int(earnings * boost_percent / 100)
-            earnings += bonus
-            boost_data["remaining"] -= 1
-            if boost_data["remaining"] <= 0:
-                del active_buffs[ctx.author.id]
-    
     user_data = get_user_data(ctx.author.id)
     prestige_income_multiplier = get_prestige_income_multiplier(user_data)
     if prestige_income_multiplier > 1:
         earnings = int(earnings * prestige_income_multiplier)
+    earnings = int(earnings * boost_multiplier(ctx.author.id, "overtime"))
 
     new_wallet = user_data["wallet"] + earnings
     update_user_wallet(ctx.author.id, new_wallet)
     update_last_work(ctx.author.id)
     update_stats(ctx.author.id, total_earned=earnings, work_earned=earnings, work_count=1)
-    grant_clan_xp(ctx.author.id, CLAN_WORK_XP)
+    clan_progress = grant_clan_xp(ctx.author.id, CLAN_WORK_XP)
 
     embed = disnake.Embed(
         title="Work",
@@ -84,7 +75,12 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
         color=EMBED_COLOR
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
+    quest_rewards = record_quest_event(ctx.author.id, "work_actions", 1)
+    quest_rewards += record_quest_event(ctx.author.id, "work_income", earnings)
+    if clan_progress:
+        quest_rewards += record_quest_event(ctx.author.id, "clan_xp", CLAN_WORK_XP)
+    add_quest_rewards_to_embed(embed, quest_rewards)
     
-    await safe_send(ctx, embed=embed)
+    await safe_send(ctx, embed=embed, view=NavigationView())
 
 

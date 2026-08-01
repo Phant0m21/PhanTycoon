@@ -12,18 +12,22 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.cogs.shop import shop
+from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP UPGRADES ====================
 
 class UpgradesView(disnake.ui.View):
     def __init__(self, author_id):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.author_id = author_id
         self.message = None
-        self.update_buttons()
+        if author_id is None:
+            for upgrade_id, upgrade_data in UPGRADES.items():
+                self.add_item(UpgradeButton(upgrade_id, upgrade_data["name"], disnake.ButtonStyle.primary, False))
+        else:
+            self.update_buttons()
     
     def update_buttons(self):
         self.clear_items()
@@ -36,7 +40,7 @@ class UpgradesView(disnake.ui.View):
             
             if is_max:
                 label = f"{upgrade_data['name']} ✅ MAX"
-                style = disnake.ButtonStyle.success
+                style = disnake.ButtonStyle.primary
             else:
                 next_level = upgrade_data["levels"][current_level]
                 label = f"{upgrade_data['name']} ({current_level}/{max_level}) - {next_level['price']}{CURRENCY}"
@@ -46,7 +50,7 @@ class UpgradesView(disnake.ui.View):
                 upgrade_id=upgrade_id,
                 label=label,
                 style=style,
-                disabled=is_max
+                disabled=False
             ))
     
     async def update_embed(self, inter: disnake.MessageInteraction):
@@ -80,7 +84,7 @@ class UpgradesView(disnake.ui.View):
             embed.add_field(
                 name=f"{upgrade_data['name']}",
                 value=f"{effect_desc}\n{status}",
-                inline=False
+                inline=True
             )
         
         embed.set_thumbnail(url=inter.author.display_avatar.url)
@@ -88,17 +92,6 @@ class UpgradesView(disnake.ui.View):
         self.update_buttons()
         await inter.message.edit(embed=embed, view=self)
     
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        if not self.message:
-            return
-        try:
-            await self.message.edit(view=self)
-        except disnake.HTTPException:
-            pass
-
-
 class UpgradeButton(disnake.ui.Button):
     def __init__(self, upgrade_id, label, style, disabled):
         super().__init__(
@@ -110,7 +103,7 @@ class UpgradeButton(disnake.ui.Button):
         self.upgrade_id = upgrade_id
     
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.view.author_id:
+        if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
@@ -153,10 +146,16 @@ class UpgradeButton(disnake.ui.Button):
             description=f"{upgrade_data['name']} upgraded to **{new_level} level** for {price} {CURRENCY}",
             color=EMBED_COLOR
         )
+        quest_rewards = record_quest_event(inter.author.id, "cash_spent", price)
+        quest_rewards += record_quest_event(inter.author.id, "upgrades_bought", 1)
+        add_quest_rewards_to_embed(embed, quest_rewards)
         await safe_send(inter, embed=embed, ephemeral=True)
         
         # Refresh main message
-        await self.view.update_embed(inter)
+        if self.view.author_id is None:
+            await UpgradesView(inter.author.id).update_embed(inter)
+        else:
+            await self.view.update_embed(inter)
 
 
 @shop.sub_command(name="upgrades", description="Buy passive upgrades")
@@ -193,7 +192,7 @@ async def shop_upgrades(ctx: disnake.ApplicationCommandInteraction):
         embed.add_field(
             name=f"{upgrade_data['name']}",
             value=f"{effect_desc}\n{status}",
-            inline=False
+            inline=True
         )
     
     embed.set_thumbnail(url=ctx.author.display_avatar.url)

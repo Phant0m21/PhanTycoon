@@ -12,6 +12,7 @@ def load_extensions() -> None:
     import phantycoon.cogs.tickets
     import phantycoon.cogs.business
     import phantycoon.cogs.shop
+    import phantycoon.cogs.quests
     import phantycoon.cogs.inventory
     import phantycoon.cogs.profile
     import phantycoon.cogs.games
@@ -19,6 +20,7 @@ def load_extensions() -> None:
     import phantycoon.cogs.upgrades
     import phantycoon.cogs.prestige
     import phantycoon.cogs.clan
+    import phantycoon.cogs.interface
     import phantycoon.events
 
 

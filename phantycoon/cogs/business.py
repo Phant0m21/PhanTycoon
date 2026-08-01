@@ -12,8 +12,9 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.navigation import NavigationView
 
 # ==================== COLLECT ====================
 
@@ -68,6 +69,11 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
         total_income += prestige_bonus
         collected_businesses.append(f"{PRESTIGE_TOKEN_EMOJI} Prestige bonus +{prestige_bonus} {CURRENCY}")
 
+    boost_bonus = int(total_income * (boost_multiplier(ctx.author.id, "business_surge") - 1))
+    if boost_bonus > 0:
+        total_income += boost_bonus
+        collected_businesses.append(f"Business Surge +{boost_bonus} {CURRENCY}")
+
     await safe_defer(ctx)
     new_wallet = user_data["wallet"] + total_income
     update_user_wallet(ctx.author.id, new_wallet)
@@ -90,5 +96,8 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
         inline=False
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
+    quest_rewards = record_quest_event(ctx.author.id, "collect_actions", 1)
+    quest_rewards += record_quest_event(ctx.author.id, "collect_income", total_income)
+    add_quest_rewards_to_embed(embed, quest_rewards)
     
-    await safe_send(ctx, embed=embed)
+    await safe_send(ctx, embed=embed, view=NavigationView())

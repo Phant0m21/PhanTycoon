@@ -18,7 +18,7 @@ class HelpSelect(disnake.ui.Select):
         super().__init__(placeholder="Choose a category", options=options, custom_id="help_select")
 
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.author_id:
+        if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
 
@@ -37,6 +37,8 @@ class HelpSelect(disnake.ui.Select):
             embed.add_field(name="/inventory", value="Show inventory", inline=False)
             embed.add_field(name="/profile", value="Show profile", inline=False)
             embed.add_field(name="/shop upgrades", value="Buy passive upgrades", inline=False)
+            embed.add_field(name="/quests", value="View your three 24-hour quests", inline=False)
+            embed.add_field(name="/shop boosts", value="Spend Lapis Lazuli on temporary boosts", inline=False)
             embed.add_field(name="/prestige reset", value="Reset progress for prestige currency", inline=False)
             embed.add_field(name="/prestige shop", value="Buy permanent prestige upgrades", inline=False)
 
@@ -73,13 +75,16 @@ class HelpSelect(disnake.ui.Select):
             embed.add_field(name="/money remove", value="Remove cash from a user", inline=False)
             embed.add_field(name="/money set", value="Set exact balance", inline=False)
             embed.add_field(name="/restart", value="Restart the bot", inline=False)
+            embed.add_field(name="/ban add", value="Ban a user from the bot", inline=False)
+            embed.add_field(name="/ban list", value="View active moderation and captcha bans", inline=False)
+            embed.add_field(name="/unban", value="Remove moderation or captcha bans", inline=False)
 
         await safe_edit(inter, embed=embed, view=self.view)
 
 
 class HelpView(disnake.ui.View):
     def __init__(self, author_id):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.add_item(HelpSelect(author_id))
 
 
@@ -101,6 +106,6 @@ async def support(ctx: disnake.ApplicationCommandInteraction):
         description="Join the Discord support server for help and updates.",
         color=EMBED_COLOR,
     )
-    view = disnake.ui.View()
+    view = disnake.ui.View(timeout=None)
     view.add_item(disnake.ui.Button(label="Join", url="https://discord.gg/8rWEMDg5Dx"))
     await safe_send(ctx, embed=embed, view=view)

@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import random
+import re
 from datetime import datetime, timedelta, timezone
 
 import disnake
@@ -12,7 +13,6 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 TOP_SORT_COLUMNS = {
@@ -91,12 +91,17 @@ class TopSelect(disnake.ui.Select):
         )
     
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.author_id:
+        if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         
         await safe_defer(inter, with_message=False)
         self.sort_by = inter.values[0]
+        if self.author_id is None:
+            mode = "server" if inter.message.embeds and inter.message.embeds[0].title.startswith("Server") else "global"
+            view = TopView(inter.author.id, mode, self.sort_by, 1)
+            await view.update_embed(inter)
+            return
         self.view.sort_by = self.sort_by
         self.view.page = 1
         await self.view.update_embed(inter)
@@ -104,7 +109,7 @@ class TopSelect(disnake.ui.Select):
 
 class TopView(disnake.ui.View):
     def __init__(self, author_id, mode="global", sort_by="balance", page=1):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.author_id = author_id
         self.mode = mode
         self.sort_by = sort_by
@@ -113,6 +118,9 @@ class TopView(disnake.ui.View):
         
         self.add_item(TopToggleButton(mode))
         self.add_item(TopSelect(author_id, mode, sort_by))
+        if author_id is None:
+            self.add_item(TopPageButton("◀", "prev", 1))
+            self.add_item(TopPageButton("▶", "next", 1))
     
     async def update_embed(self, inter: disnake.MessageInteraction):
         if self.sort_by not in TOP_SORT_COLUMNS:
@@ -169,7 +177,6 @@ class TopView(disnake.ui.View):
         end = start + items_per_page
         page_users = users[start:end]
         
-        admin = await inter.bot.fetch_user(DEV_ID)
         leaderboard = []
         
         # Field names
@@ -201,7 +208,7 @@ class TopView(disnake.ui.View):
         
         embed = disnake.Embed(
             title=title,
-            description=f"Bot admin: {admin.mention}\nSort: **{field_name}**\n\n" + "\n".join(leaderboard),
+            description=f"Sort: **{field_name}**\n\n" + "\n".join(leaderboard),
             color=EMBED_COLOR
         )
         embed.set_footer(text=f"Page {self.page}/{total_pages}")
@@ -217,29 +224,23 @@ class TopView(disnake.ui.View):
         
         await safe_edit(inter, embed=embed, view=self)
     
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        if not self.message:
-            return
-        try:
-            await self.message.edit(view=self)
-        except disnake.HTTPException:
-            pass
-
-
 class TopToggleButton(disnake.ui.Button):
     def __init__(self, mode):
         label = "Global"
-        style = disnake.ButtonStyle.primary if mode == "global" else disnake.ButtonStyle.secondary
+        style = disnake.ButtonStyle.primary
         super().__init__(label=label, style=style, custom_id="top_toggle")
         self.mode = mode
     
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.view.author_id:
+        if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         await safe_defer(inter, with_message=False)
+        if self.view.author_id is None:
+            current = "server" if inter.message.embeds and inter.message.embeds[0].title.startswith("Server") else "global"
+            view = TopView(inter.author.id, "global" if current == "server" else "server", "balance", 1)
+            await view.update_embed(inter)
+            return
         new_mode = "server" if self.mode == "global" else "global"
         self.view.mode = new_mode
         self.view.page = 1
@@ -248,15 +249,37 @@ class TopToggleButton(disnake.ui.Button):
 
 class TopPageButton(disnake.ui.Button):
     def __init__(self, label, direction, current_page):
-        super().__init__(label=label, style=disnake.ButtonStyle.secondary, custom_id=f"top_page_{direction}")
+        super().__init__(label=label, style=disnake.ButtonStyle.primary, custom_id=f"top_page_{direction}")
         self.direction = direction
         self.current_page = current_page
     
     async def callback(self, inter: disnake.MessageInteraction):
-        if inter.author.id != self.view.author_id:
+        if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
         await safe_defer(inter, with_message=False)
+        if self.view.author_id is None:
+            embed = inter.message.embeds[0] if inter.message.embeds else None
+            current_page = 1
+            if embed and embed.footer and embed.footer.text:
+                match = re.search(r"Page (\d+)/", embed.footer.text)
+                if match:
+                    current_page = int(match.group(1))
+            mode = "server" if embed and embed.title.startswith("Server") else "global"
+            reverse_names = {
+                "Balance": "balance", "Total earned": "total_earned", "Total spent": "total_spent",
+                "Earned from /work": "work_earned", "Earned from /collect": "collect_earned",
+                "Jobs completed": "work_count", "Games played": "games_played", "Prestige": "prestige_level",
+            }
+            sort_by = "balance"
+            if embed and embed.description:
+                match = re.search(r"Sort: \*\*(.+?)\*\*", embed.description)
+                if match:
+                    sort_by = reverse_names.get(match.group(1), "balance")
+            page = max(1, current_page - 1 if self.direction == "prev" else current_page + 1)
+            view = TopView(inter.author.id, mode, sort_by, page)
+            await view.update_embed(inter)
+            return
         self.view.page = self.current_page - 1 if self.direction == "prev" else self.current_page + 1
         await self.view.update_embed(inter)
 
@@ -293,7 +316,6 @@ async def top(
     end = start + items_per_page
     page_users = users[start:end]
     
-    admin = await bot.fetch_user(DEV_ID)
     leaderboard = []
     for idx, (user_id, total) in enumerate(page_users, start=start + 1):
         try:
@@ -305,7 +327,7 @@ async def top(
     
     embed = disnake.Embed(
         title="Global Leaderboard",
-        description=f"Bot admin: {admin.mention}\n\n" + "\n".join(leaderboard),
+        description="\n".join(leaderboard),
         color=EMBED_COLOR
     )
     embed.set_footer(text=f"Page {page}/{total_pages}")

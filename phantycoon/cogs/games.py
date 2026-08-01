@@ -12,8 +12,9 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.state import active_buffs, collect_cooldowns
 from phantycoon.interactions import safe_defer, safe_edit, safe_send
+from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.navigation import NavigationView
 
 # ==================== COINFLIP ====================
 
@@ -41,7 +42,7 @@ async def coinflip(
     result = random.choice(["Heads", "Tails"])
     
     if result == choice:
-        win_amount = bet * 2
+        win_amount = int(bet * 2 * boost_multiplier(user_id, "lucky_streak"))
         user_data = get_user_data(user_id)
         update_user_wallet(user_id, user_data["wallet"] + win_amount)
         update_stats(user_id, total_earned=win_amount, games_played=1)
@@ -52,33 +53,18 @@ async def coinflip(
             color=EMBED_COLOR
         )
     else:
-        inventory = get_user_inventory(user_id)
-        has_insurance = inventory.get("Insurance", 0) > 0
-        
-        if has_insurance:
-            refund = int(bet * 0.3)
-            # Fetch current balance
-            current_wallet = get_user_data(user_id)["wallet"]
-            update_user_wallet(user_id, current_wallet + refund)
-            
-            inventory["Insurance"] -= 1
-            if inventory["Insurance"] <= 0:
-                del inventory["Insurance"]
-            update_user_inventory(user_id, inventory)
-            
-            embed = disnake.Embed(
-                title="Coinflip",
-                description=f"**Result: {result}**\n\n{ctx.author.mention} lost **{bet}** {CURRENCY}\n\n📋 Insurance refunded **{refund}** {CURRENCY}",
-                color=EMBED_COLOR
-            )
-        else:
-            embed = disnake.Embed(
-                title="Coinflip",
-                description=f"**Result: {result}**\n\n{ctx.author.mention} lost **{bet}** {CURRENCY}",
-                color=EMBED_COLOR
-            )
+        embed = disnake.Embed(
+            title="Coinflip",
+            description=f"**Result: {result}**\n\n{ctx.author.mention} lost **{bet}** {CURRENCY}",
+            color=EMBED_COLOR
+        )
         
         update_stats(user_id, total_spent=bet, games_played=1)
     
     embed.set_thumbnail(url=ctx.author.display_avatar.url)
-    await safe_send(ctx, embed=embed)
+    quest_rewards = record_quest_event(user_id, "games_played", 1)
+    if result == choice:
+        quest_rewards += record_quest_event(user_id, "games_won", 1)
+        quest_rewards += record_quest_event(user_id, "game_winnings", win_amount)
+    add_quest_rewards_to_embed(embed, quest_rewards)
+    await safe_send(ctx, embed=embed, view=NavigationView())

@@ -14,6 +14,7 @@ from phantycoon.database import (
 )
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
+from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
 
 
 MINE_TIPS = (
@@ -32,7 +33,7 @@ MINE_TIPS = (
 )
 
 
-def mine_embed(user, pickaxe_name, results):
+def mine_embed(user, pickaxe_name, results, quest_rewards=None):
     found = "\n".join(f"{ORES[name]['emoji']} {name} x{amount}" for name, amount in results.items())
     emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     embed = disnake.Embed(
@@ -43,6 +44,7 @@ def mine_embed(user, pickaxe_name, results):
     embed.set_thumbnail(url=user.display_avatar.url)
     if random.random() < 0.05:
         embed.add_field(name="💡 Useful tip", value=random.choice(MINE_TIPS), inline=False)
+    add_quest_rewards_to_embed(embed, quest_rewards or [])
     return embed
 
 
@@ -65,9 +67,17 @@ async def run_mine(inter):
     update_user_inventory(inter.author.id, inventory)
     update_last_mine(inter.author.id)
     update_stats(inter.author.id, mine_count=1)
-    grant_clan_xp(inter.author.id, CLAN_MINE_XP)
+    clan_progress = grant_clan_xp(inter.author.id, CLAN_MINE_XP)
     captcha_triggered, captcha_code = record_mine_for_captcha(inter.author.id, generate_captcha_code)
-    await safe_send(inter, embed=mine_embed(inter.author, pickaxe_name, results), view=MineView(inter.author.id))
+    quest_rewards = []
+    quest_rewards += record_quest_event(inter.author.id, "mine_actions", 1)
+    quest_rewards += record_quest_event(inter.author.id, "ore_units", sum(results.values()))
+    quest_rewards += record_quest_event(inter.author.id, "distinct_ores", len(results))
+    if clan_progress:
+        quest_rewards += record_quest_event(inter.author.id, "clan_xp", CLAN_MINE_XP)
+    for ore_name, amount in results.items():
+        quest_rewards += record_quest_event(inter.author.id, f"ore_{ore_name.lower()}", amount)
+    await safe_send(inter, embed=mine_embed(inter.author, pickaxe_name, results, quest_rewards), view=MineView(inter.author.id))
     if captcha_triggered:
         await send_captcha(inter, captcha_code)
 
@@ -88,7 +98,7 @@ class MineView(disnake.ui.View):
     async def mine_button(self, button, inter):
         await run_mine(inter)
 
-    @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.success, custom_id="mine:sell")
+    @disnake.ui.button(label="Sell ore", style=disnake.ButtonStyle.primary, custom_id="mine:sell")
     async def sell_ores_button(self, button, inter):
         if await block_if_captcha_active(inter):
             return
@@ -99,14 +109,16 @@ class MineView(disnake.ui.View):
         prestige_multiplier = get_prestige_ore_value_multiplier(user_data)
         clan_multiplier = get_clan_ore_bonus_multiplier(inter.author.id)
         total_earned = 0
+        total_sold = 0
         sold_items = []
         for ore_name, quantity in list(inventory.items()):
             if ore_name not in ORES or quantity <= 0:
                 continue
             ore = ORES[ore_name]
-            price = int(random.randint(ore["price_min"], ore["price_max"]) * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier)
+            price = int(random.randint(ore["price_min"], ore["price_max"]) * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier * boost_multiplier(inter.author.id, "prospector"))
             earned = price * quantity
             total_earned += earned
+            total_sold += quantity
             sold_items.append(f"{ore['emoji']} {ore_name} x{quantity} = {earned:,} {CURRENCY}")
             del inventory[ore_name]
         if not total_earned:
@@ -117,8 +129,27 @@ class MineView(disnake.ui.View):
         update_user_wallet(inter.author.id, user_data["wallet"] + total_earned)
         update_stats(inter.author.id, total_earned=total_earned)
         embed = disnake.Embed(title="Ore Sale", description="\n".join(sold_items) + f"\n\n**Total: {total_earned:,} {CURRENCY}**", color=EMBED_COLOR)
+        quest_rewards = record_quest_event(inter.author.id, "ore_sales", total_sold)
+        quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", total_earned)
+        add_quest_rewards_to_embed(embed, quest_rewards)
         embed.set_thumbnail(url=inter.author.display_avatar.url)
         await safe_send(inter, embed=embed, view=MineView(inter.author.id))
+
+    @disnake.ui.button(label="Profile", emoji="👤", style=disnake.ButtonStyle.primary, custom_id="mine:profile")
+    async def profile_button(self, button, inter):
+        from phantycoon.cogs.profile import ProfileView, build_profile_embed
+        await safe_send(inter, embed=build_profile_embed(inter.author), view=ProfileView(inter.author.id, inter.author.id), ephemeral=True)
+
+    @disnake.ui.button(label="Quests", emoji="📜", style=disnake.ButtonStyle.primary, custom_id="mine:quests")
+    async def quests_button(self, button, inter):
+        from phantycoon.cogs.quests import build_quests_embed
+        await safe_send(inter, embed=build_quests_embed(inter.author.id), ephemeral=True)
+
+    @disnake.ui.button(label="Shop", emoji="🛒", style=disnake.ButtonStyle.primary, custom_id="mine:shop")
+    async def shop_button(self, button, inter):
+        from phantycoon.cogs.shop import ShopView
+        embed = disnake.Embed(title="Shop", description="Choose a category below.", color=EMBED_COLOR)
+        await safe_send(inter, embed=embed, view=ShopView(inter.author.id), ephemeral=True)
 
 
 @bot.listen("on_ready")
