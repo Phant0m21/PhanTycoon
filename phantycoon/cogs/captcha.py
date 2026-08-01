@@ -1,5 +1,6 @@
 import random
 import string
+from datetime import datetime
 from io import BytesIO
 
 import disnake
@@ -15,6 +16,7 @@ from phantycoon.database import (
     activate_captcha,
     ban_for_failed_captcha,
     clear_captcha,
+    get_bot_ban,
     get_captcha_status,
     increment_captcha_attempts,
     is_captcha_banned,
@@ -99,6 +101,16 @@ async def send_failed_captcha_ban(inter, banned_until):
 
 
 async def block_if_captcha_active(inter):
+    bot_ban = get_bot_ban(inter.author.id)
+    if bot_ban:
+        if bot_ban["is_permanent"]:
+            duration = "This ban is permanent."
+        else:
+            expires_at = datetime.fromisoformat(bot_ban["expires_at"])
+            duration = f"Expires <t:{int(expires_at.timestamp())}:R>."
+        await safe_send(inter, f"You are banned from using the bot.\nReason: **{bot_ban['reason']}**\n{duration}", ephemeral=True)
+        return True
+
     status = get_captcha_status(inter.author.id)
     banned, banned_until = is_captcha_banned(status)
     if banned:

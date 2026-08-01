@@ -183,6 +183,32 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bot_bans (
+            user_id TEXT PRIMARY KEY,
+            moderator_id TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT,
+            is_permanent INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tickets (
+            ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id TEXT NOT NULL UNIQUE,
+            guild_id TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            ticket_type TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            closed_at TEXT,
+            closed_by TEXT,
+            close_reason TEXT,
+            status TEXT NOT NULL DEFAULT 'open'
+        )
+    """)
+
     cursor.execute("PRAGMA table_info(users)")
     existing_columns = {row["name"] for row in cursor.fetchall()}
     required_columns = {
@@ -227,6 +253,8 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_user_id ON clan_members(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_weekly_week ON clan_weekly_xp(week_start)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_invites_user_id ON clan_invites(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bot_bans_expires_at ON bot_bans(expires_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_owner_status ON tickets(owner_id, status)")
 
     for old_name, new_name in NAME_MIGRATIONS.items():
         cursor.execute("UPDATE users SET current_pickaxe = ? WHERE current_pickaxe = ?", (new_name, old_name))
@@ -425,6 +453,131 @@ def get_captcha_status(user_id):
         "captcha_mine_actions": row["captcha_mine_actions"] or 0,
         "captcha_mine_limit": row["captcha_mine_limit"] or 0,
     }
+
+def create_bot_ban(user_id, moderator_id, reason, expires_at=None):
+    now = datetime.now(timezone.utc).isoformat()
+    expires_value = expires_at.isoformat() if expires_at else None
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO bot_bans (user_id, moderator_id, reason, created_at, expires_at, is_permanent)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            moderator_id = excluded.moderator_id,
+            reason = excluded.reason,
+            created_at = excluded.created_at,
+            expires_at = excluded.expires_at,
+            is_permanent = excluded.is_permanent
+        """,
+        (str(user_id), str(moderator_id), reason, now, expires_value, int(expires_at is None)),
+    )
+    conn.commit()
+    conn.close()
+    return get_bot_ban(user_id)
+
+def get_bot_ban(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM bot_bans WHERE user_id = ?", (str(user_id),))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    data = dict(row)
+    if not data["is_permanent"] and data["expires_at"]:
+        expires_at = datetime.fromisoformat(data["expires_at"])
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) >= expires_at:
+            cursor.execute("DELETE FROM bot_bans WHERE user_id = ?", (str(user_id),))
+            conn.commit()
+            conn.close()
+            return None
+    conn.close()
+    return data
+
+def remove_bot_ban(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM bot_bans WHERE user_id = ?", (str(user_id),))
+    removed = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return removed
+
+def clear_all_captcha_state(user_id):
+    get_user_data(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users SET
+            is_captcha_active = 0, captcha_code = NULL, captcha_attempts = 0,
+            captcha_regens = 0, captcha_banned_until = NULL,
+            captcha_mine_actions = 0, captcha_mine_limit = ?
+        WHERE user_id = ?
+        """,
+        (CAPTCHA_ACTION_INTERVAL, str(user_id)),
+    )
+    changed = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
+
+def count_open_tickets(owner_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) AS amount FROM tickets WHERE owner_id = ? AND status = 'open'",
+        (str(owner_id),),
+    )
+    amount = cursor.fetchone()["amount"]
+    conn.close()
+    return amount
+
+def create_ticket_record(channel_id, guild_id, owner_id, ticket_type):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO tickets (channel_id, guild_id, owner_id, ticket_type, created_at, status)
+        VALUES (?, ?, ?, ?, ?, 'open')
+        """,
+        (str(channel_id), str(guild_id), str(owner_id), ticket_type, now),
+    )
+    ticket_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return ticket_id
+
+def get_open_ticket(channel_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM tickets WHERE channel_id = ? AND status = 'open'",
+        (str(channel_id),),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def close_ticket_record(channel_id, moderator_id, reason):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE tickets SET status = 'closed', closed_at = ?, closed_by = ?, close_reason = ?
+        WHERE channel_id = ? AND status = 'open'
+        """,
+        (now, str(moderator_id), reason, str(channel_id)),
+    )
+    changed = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
 
 def is_captcha_banned(status):
     banned_until = status.get("captcha_banned_until") if status else None
