@@ -150,8 +150,8 @@ class ProfileView(disnake.ui.View):
         self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary))
         self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary))
         self.add_item(ProfileButton("Buffs", "buffs", disnake.ButtonStyle.primary))
-        self.add_item(ProfileShortcutButton("Mine", "⛏️", "mine"))
-        self.add_item(ProfileShortcutButton("Quests", "📜", "quests"))
+        self.add_item(ProfileShortcutButton("Mine", "mine"))
+        self.add_item(ProfileShortcutButton("Quests", "quests"))
 
     async def update_embed(self, inter: disnake.MessageInteraction):
         target = await inter.bot.fetch_user(self.target_id or inter.author.id)
@@ -182,8 +182,8 @@ class ProfileButton(disnake.ui.Button):
 
 
 class ProfileShortcutButton(disnake.ui.Button):
-    def __init__(self, label, emoji, action):
-        super().__init__(label=label, emoji=emoji, style=disnake.ButtonStyle.primary, custom_id=f"profile_{action}")
+    def __init__(self, label, action):
+        super().__init__(label=label, style=disnake.ButtonStyle.primary, custom_id=f"profile_{action}")
         self.action = action
 
     async def callback(self, inter):

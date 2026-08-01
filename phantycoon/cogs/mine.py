@@ -135,17 +135,17 @@ class MineView(disnake.ui.View):
         embed.set_thumbnail(url=inter.author.display_avatar.url)
         await safe_send(inter, embed=embed, view=MineView(inter.author.id))
 
-    @disnake.ui.button(label="Profile", emoji="👤", style=disnake.ButtonStyle.primary, custom_id="mine:profile")
+    @disnake.ui.button(label="Profile", style=disnake.ButtonStyle.primary, custom_id="mine:profile")
     async def profile_button(self, button, inter):
         from phantycoon.cogs.profile import ProfileView, build_profile_embed
         await safe_send(inter, embed=build_profile_embed(inter.author), view=ProfileView(inter.author.id, inter.author.id), ephemeral=True)
 
-    @disnake.ui.button(label="Quests", emoji="📜", style=disnake.ButtonStyle.primary, custom_id="mine:quests")
+    @disnake.ui.button(label="Quests", style=disnake.ButtonStyle.primary, custom_id="mine:quests")
     async def quests_button(self, button, inter):
         from phantycoon.cogs.quests import build_quests_embed
         await safe_send(inter, embed=build_quests_embed(inter.author.id), ephemeral=True)
 
-    @disnake.ui.button(label="Shop", emoji="🛒", style=disnake.ButtonStyle.primary, custom_id="mine:shop")
+    @disnake.ui.button(label="Shop", style=disnake.ButtonStyle.primary, custom_id="mine:shop")
     async def shop_button(self, button, inter):
         from phantycoon.cogs.shop import ShopView
         embed = disnake.Embed(title="Shop", description="Choose a category below.", color=EMBED_COLOR)

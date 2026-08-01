@@ -119,8 +119,8 @@ class TopView(disnake.ui.View):
         self.add_item(TopToggleButton(mode))
         self.add_item(TopSelect(author_id, mode, sort_by))
         if author_id is None:
-            self.add_item(TopPageButton("◀", "prev", 1))
-            self.add_item(TopPageButton("▶", "next", 1))
+            self.add_item(TopPageButton("Previous", "prev", 1))
+            self.add_item(TopPageButton("Next", "next", 1))
     
     async def update_embed(self, inter: disnake.MessageInteraction):
         if self.sort_by not in TOP_SORT_COLUMNS:
@@ -218,9 +218,9 @@ class TopView(disnake.ui.View):
         self.add_item(TopSelect(self.author_id, self.mode, self.sort_by))
         
         if self.page > 1:
-            self.add_item(TopPageButton("◀", "prev", self.page))
+            self.add_item(TopPageButton("Previous", "prev", self.page))
         if self.page < total_pages:
-            self.add_item(TopPageButton("▶", "next", self.page))
+            self.add_item(TopPageButton("Next", "next", self.page))
         
         await safe_edit(inter, embed=embed, view=self)
     
@@ -337,9 +337,9 @@ async def top(
     view.add_item(TopToggleButton("global"))
     view.add_item(TopSelect(ctx.author.id, "global", "balance"))
     if page > 1:
-        view.add_item(TopPageButton("◀", "prev", page))
+        view.add_item(TopPageButton("Previous", "prev", page))
     if page < total_pages:
-        view.add_item(TopPageButton("▶", "next", page))
+        view.add_item(TopPageButton("Next", "next", page))
     
     view.message = await safe_send(ctx, embed=embed, view=view)
 

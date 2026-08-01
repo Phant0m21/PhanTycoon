@@ -113,7 +113,7 @@ class TicketPanelView(disnake.ui.View):
 
 class TicketTypeButton(disnake.ui.Button):
     def __init__(self, ticket_type, label):
-        super().__init__(label=label, style=disnake.ButtonStyle.primary, custom_id=f"ticket:create:{ticket_type}")
+        super().__init__(label=label.split(" ", 1)[-1], style=disnake.ButtonStyle.primary, custom_id=f"ticket:create:{ticket_type}")
         self.ticket_type = ticket_type
 
     async def callback(self, inter):
@@ -187,7 +187,7 @@ class TicketControlsView(disnake.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @disnake.ui.button(label="Claim", emoji="🙋", style=disnake.ButtonStyle.primary, custom_id="ticket:claim")
+    @disnake.ui.button(label="Claim", style=disnake.ButtonStyle.primary, custom_id="ticket:claim")
     async def claim(self, button, inter):
         if not is_ticket_staff(inter.author):
             await safe_embed(inter, "Access denied", "Only ticket staff can manage tickets.", ephemeral=True)
@@ -198,7 +198,7 @@ class TicketControlsView(disnake.ui.View):
             return
         await safe_embed(inter, "Ticket claimed", f"This ticket is now handled by {inter.author.mention}.")
 
-    @disnake.ui.button(label="Close", emoji="🔒", style=disnake.ButtonStyle.primary, custom_id="ticket:close")
+    @disnake.ui.button(label="Close", style=disnake.ButtonStyle.primary, custom_id="ticket:close")
     async def close(self, button, inter):
         if not is_ticket_staff(inter.author):
             await safe_embed(inter, "Access denied", "Only ticket staff can manage tickets.", ephemeral=True)
