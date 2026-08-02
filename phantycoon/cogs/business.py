@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_send
-from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== COLLECT ====================
 
@@ -68,10 +68,6 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
         total_income += prestige_bonus
         collected_businesses.append(f"{PRESTIGE_TOKEN_EMOJI} Prestige bonus +{prestige_bonus} {CURRENCY}")
 
-    boost_bonus = int(total_income * (boost_multiplier(ctx.author.id, "business_surge") - 1))
-    if boost_bonus > 0:
-        total_income += boost_bonus
-        collected_businesses.append(f"Business Surge +{boost_bonus} {CURRENCY}")
 
     await safe_defer(ctx)
     new_wallet = user_data["wallet"] + total_income

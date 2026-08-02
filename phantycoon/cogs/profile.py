@@ -6,7 +6,7 @@ from disnake.ext import commands
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
-from phantycoon.database import get_active_boosts, get_user_businesses, get_user_clan, get_user_data
+from phantycoon.database import get_active_boosts, get_mine_cooldown, get_user_businesses, get_user_clan, get_user_data
 from phantycoon.progression import BOOSTS
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
@@ -58,53 +58,47 @@ def build_profile_embed(target):
     return embed
 
 
-def get_mine_cooldown(user_id):
-    user_data = get_user_data(user_id)
-    base = PICKAXES.get(user_data.get("current_pickaxe", "Stone Pickaxe"), {}).get("cooldown", 4.2)
-    level = user_data.get("time_management_level", 0)
-    reduction = sum(row["mine_reduction"] for row in UPGRADES["time_management"]["levels"][:level])
-    cooldown = max(0.5, base - reduction)
-    if "mine_haste" in get_active_boosts(user_id):
-        cooldown = max(0.5, cooldown * BOOSTS["mine_haste"]["value"])
-    return cooldown
-
-
 def build_buffs_embed(target):
     data = get_user_data(target.id)
     tm_level = data.get("time_management_level", 0)
     tm_rows = UPGRADES["time_management"]["levels"][:tm_level]
-    mine_reduction = sum(row["mine_reduction"] for row in tm_rows)
     work_reduction = sum(row["work_reduction_minutes"] for row in tm_rows)
     business_level = data.get("business_optimization_level", 0)
     business_bonus = sum(row["income_bonus"] for row in UPGRADES["business_optimization"]["levels"][:business_level])
     miner_level = data.get("miner_boost_level", 0)
     ore_bonus = sum(row["ore_bonus"] for row in UPGRADES["miner_boost"]["levels"][:miner_level])
     clan = get_user_clan(target.id)
-    clan_bonus = clan["level"] * 0.5 if clan else 0
     active_boosts = get_active_boosts(target.id)
 
-    lines = [
-        f"**Pickaxe**\n{data.get('current_pickaxe', 'Stone Pickaxe')}\nMining cooldown: **{get_mine_cooldown(target.id):.1f} seconds**\nOre rolls per mine: **{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_min', 1)}–{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_max', 1)}**",
-        f"**Time Management — Level {tm_level}**\nMining cooldown reduction: **{mine_reduction:.1f} seconds**\nWork cooldown reduction: **{work_reduction} minutes**",
-        f"**Business Optimization — Level {business_level}**\nBusiness collection income: **+{business_bonus}%**",
-        f"**Ore Miner — Level {miner_level}**\nOre sale value: **+{ore_bonus}%**",
-        f"**Commanding Manager — Level {data.get('prestige_manager_level', 0)}**\nWork and business income: **+{data.get('prestige_manager_level', 0) * 20}%**",
-        f"**Starting Capital — Level {data.get('prestige_capital_level', 0)}**",
-        f"**Double Vein — Level {data.get('prestige_double_ore_level', 0)}**\nDouble ore chance: **{data.get('prestige_double_ore_level', 0) * 8}%**",
-        f"**Diamond Rush — Level {data.get('prestige_ore_value_level', 0)}**\nOre sale value: **+{data.get('prestige_ore_value_level', 0) * 20}%**",
-        f"**Clan bonus**\nOre sale value: **+{clan_bonus:.1f}%**" if clan else "**Clan bonus**\nInactive",
-    ]
-    if active_boosts:
-        boost_lines = []
-        for boost_id, expires_at in active_boosts.items():
-            boost = BOOSTS.get(boost_id)
-            if boost:
-                boost_lines.append(f"**{boost['name']}**\n{boost['effect']}\nExpires <t:{int(datetime.fromisoformat(expires_at).timestamp())}:R>")
-        if boost_lines:
-            lines.extend(boost_lines)
-    else:
-        lines.append("**Temporary boosts**\nInactive")
-    embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n\n".join(lines), color=EMBED_COLOR)
+    prestige_income = 1 + data.get("prestige_manager_level", 0) * 0.20
+    work_income = prestige_income
+    business_income = (1 + business_bonus / 100) * prestige_income
+    ore_sale = 1 + ore_bonus / 100
+    ore_sale *= 1 + data.get("prestige_ore_value_level", 0) * 0.20
+    ore_sale *= 1 + (clan["level"] * 0.005 if clan else 0)
+    if "prospector" in active_boosts:
+        ore_sale *= BOOSTS["prospector"]["value"]
+    ore_quantity = BOOSTS["mining_frenzy"]["value"] if "mining_frenzy" in active_boosts else 1.0
+
+    pickaxe = PICKAXES.get(data.get("current_pickaxe", "Stone Pickaxe"), PICKAXES["Stone Pickaxe"])
+    rolls_min = pickaxe.get("rolls_min", 1)
+    rolls_max = pickaxe.get("rolls_max", 1)
+    rolls = str(rolls_min) if rolls_min == rolls_max else f"{rolls_min}–{rolls_max}"
+    work_cooldown_minutes = max(0, 120 - work_reduction)
+    work_hours, work_minutes = divmod(work_cooldown_minutes, 60)
+    work_cooldown = f"{work_hours}h {work_minutes}m" if work_hours else f"{work_minutes}m"
+
+    description = (
+        f"Work income: **{work_income:.2f}x**\n"
+        f"Business income: **{business_income:.2f}x**\n"
+        f"Ore sell price: **{ore_sale:.2f}x**\n"
+        f"Ore quantity: **{ore_quantity:.2f}x**\n"
+        f"Double ore chance: **{data.get('prestige_double_ore_level', 0) * 8}%**\n"
+        f"Ore rolls per mine: **{rolls}**\n"
+        f"Work cooldown: **{work_cooldown}**\n"
+        f"Mining cooldown: **{get_mine_cooldown(target.id):.1f}s**"
+    )
+    embed = disnake.Embed(title=f"{target.name}'s current multipliers:", description=description, color=EMBED_COLOR)
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
 

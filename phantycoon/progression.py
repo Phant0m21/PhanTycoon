@@ -40,9 +40,6 @@ BOOSTS = {
     "mining_frenzy": {"name": "Mining Frenzy", "cost": 4, "minutes": 20, "effect": "+50% ore quantity", "value": 1.50},
     "mine_haste": {"name": "Mine Haste", "cost": 5, "minutes": 15, "effect": "−35% mining cooldown", "value": 0.65},
     "prospector": {"name": "Prospector", "cost": 5, "minutes": 20, "effect": "+40% ore sale value", "value": 1.40},
-    "overtime": {"name": "Overtime", "cost": 4, "minutes": 25, "effect": "+35% /work income", "value": 1.35},
-    "business_surge": {"name": "Business Surge", "cost": 5, "minutes": 25, "effect": "+30% /collect income", "value": 1.30},
-    "lucky_streak": {"name": "Lucky Streak", "cost": 4, "minutes": 20, "effect": "+20% minigame winnings", "value": 1.20},
 }
 
 

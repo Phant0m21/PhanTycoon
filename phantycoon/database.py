@@ -3,7 +3,10 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from phantycoon.config import DB_FILE
-from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES, UPGRADES
+from phantycoon.data import (
+    BASE_MINE_COOLDOWN, MIN_MINE_COOLDOWN, ORES, PICKAXES,
+    PICKAXE_COOLDOWN_ADD, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES, UPGRADES,
+)
 
 STAT_COLUMNS = {
     "total_earned",
@@ -1402,33 +1405,31 @@ def can_collect(user_id):
 
 def can_mine(user_id):
     data = get_user_data(user_id)
+    final_cooldown = get_mine_cooldown(user_id, data)
     last_mine_str = data.get("last_mine")
     if not last_mine_str:
-        return True, None, 0
+        return True, None, final_cooldown
     
     last_mine = datetime.fromisoformat(last_mine_str)
     if last_mine.tzinfo is None:
         last_mine = last_mine.replace(tzinfo=timezone.utc)
     
-    pickaxe_name = data.get("current_pickaxe", "Stone Pickaxe")
-    base_cooldown = PICKAXES.get(pickaxe_name, {}).get("cooldown", 4.2)
-    
-    # Apply upgrade Time Management
-    time_management_level = data.get("time_management_level", 0)
-    mine_reduction = 0
-    if time_management_level > 0:
-        levels = UPGRADES["time_management"]["levels"]
-        for i in range(time_management_level):
-            mine_reduction += levels[i]["mine_reduction"]
-    
-    final_cooldown = max(0.5, base_cooldown - mine_reduction)
-    if "mine_haste" in get_active_boosts(user_id):
-        final_cooldown = max(0.5, final_cooldown * 0.65)
     next_mine = last_mine + timedelta(seconds=final_cooldown)
-    
     if datetime.now(timezone.utc) >= next_mine:
         return True, None, final_cooldown
     return False, next_mine, final_cooldown
+
+def get_mine_cooldown(user_id, data=None):
+    data = data or get_user_data(user_id)
+    pickaxe_name = data.get("current_pickaxe", "Stone Pickaxe")
+    pickaxe_delay = PICKAXES.get(pickaxe_name, {}).get("cooldown_add", PICKAXE_COOLDOWN_ADD)
+    time_management_level = data.get("time_management_level", 0)
+    levels = UPGRADES["time_management"]["levels"][:time_management_level]
+    mine_reduction = sum(level["mine_reduction"] for level in levels)
+    final_cooldown = BASE_MINE_COOLDOWN + pickaxe_delay - mine_reduction
+    if "mine_haste" in get_active_boosts(user_id):
+        final_cooldown *= 0.65
+    return max(MIN_MINE_COOLDOWN, final_cooldown)
 
 def get_global_top():
     conn = get_db()

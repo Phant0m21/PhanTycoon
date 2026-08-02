@@ -13,7 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_send
-from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== COINFLIP ====================
 
@@ -41,7 +41,7 @@ async def coinflip(
     result = random.choice(["Heads", "Tails"])
     
     if result == choice:
-        win_amount = int(bet * 2 * boost_multiplier(user_id, "lucky_streak"))
+        win_amount = bet * 2
         user_data = get_user_data(user_id)
         update_user_wallet(user_id, user_data["wallet"] + win_amount)
         update_stats(user_id, total_earned=win_amount, games_played=1)

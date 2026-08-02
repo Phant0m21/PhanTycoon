@@ -63,7 +63,7 @@ class ShopSelect(disnake.ui.Select):
                 if not pickaxe_data:
                     continue
                 check = " ✅" if name == current_pickaxe else ""
-                lines.append(f"{pickaxe_data.get('emoji', '')} **{name}**{check}\nPrice: **{data['price']:,}{CURRENCY}**\nMining cooldown: **{pickaxe_data.get('cooldown', 0)} seconds**")
+                lines.append(f"{pickaxe_data.get('emoji', '')} **{name}**{check}\nPrice: **{data['price']:,}{CURRENCY}**")
             embed.description = "\n".join(lines)
                 
         embed.set_footer(text="Purchase with /buy")

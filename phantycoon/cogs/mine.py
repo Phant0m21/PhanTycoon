@@ -19,7 +19,7 @@ from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier,
 
 MINE_TIPS = (
     "Sell ore with the **Sell ore** button: Ore Miner, Diamond Rush and your clan bonus all increase the final sale price.",
-    "A better pickaxe does more than unlock rare ore: it also performs more mining rolls per click and lowers the cooldown.",
+    "Better pickaxes unlock rarer ore and perform more mining rolls, but every pickaxe adds the same **1.1-second** delay.",
     "Open `/profile` → **Buffs** to see every active multiplier, its exact value and your current mine cooldown.",
     "Joining a clan increases the value of every ore you sell. The bonus grows by **0.5% per clan level**.",
     "The **Double Vein** prestige upgrade rolls separately for every ore find, so it becomes stronger with high-tier pickaxes.",
@@ -27,14 +27,36 @@ MINE_TIPS = (
     "You can keep using **Mine again** on an old mine message—even after a long break or a bot restart—without entering `/mine` again.",
     "Early upgrades are intentionally inexpensive. Buy a few Ore Miner levels before saving for the next pickaxe to speed up progression.",
     "Time Management affects both `/work` and `/mine`, making it useful even when you alternate between active mining and timed income.",
+    "Mining cooldown has a hard floor of **2.0 seconds**. Further cooldown bonuses cannot reduce it below that.",
+    "Mine Haste reduces your mining cooldown by **35%**, but the **2.0-second** minimum still applies.",
+    "Mining Frenzy increases every ore quantity you find by **50%** for its duration.",
+    "Prospector increases the final sale value of ore by **40%**; save a large batch and sell it while the boost is active.",
+    "The Stone Pickaxe finds Coal and Copper; Iron becomes available with the Iron Pickaxe.",
+    "The Golden Pickaxe unlocks Gold, while the Diamond Pickaxe is the first one that can find Diamonds.",
+    "The Netherite Pickaxe has **5–7 rolls per mine**, the highest roll count of all pickaxes.",
+    "A mining roll chooses one available ore, so several rolls can combine into a larger stack of the same ore.",
+    "Ore stays in your inventory until you sell it; there is no need to sell after every mining action.",
+    "Check `/inventory` to see your stored ore and switch to a pickaxe you own.",
+    "Pickaxes are equipped from `/inventory`; buying one does not automatically replace your equipped pickaxe.",
     "Do not sell a pickaxe you still want to use: pickaxes sell for only half their shop price, while ore has no storage limit.",
+    "Daily quests award Lapis Lazuli. Mining, collecting ore and selling ore can each advance different quest objectives.",
+    "Daily quests have three reward tiers, so continuing the same objective can unlock more Lapis Lazuli.",
+    "Quest difficulty scales with your progress, but newly generated quests only ask for ores your equipped pickaxe can find.",
+    "Every successful mine contributes **5 Clan XP** when you belong to a clan.",
+    "Clan levels improve ore sale value for every member, so regular mining benefits the whole clan.",
+    "Commanding Manager improves `/work` and `/collect`; it does not increase the value of ore.",
+    "Diamond Rush and Ore Miner affect ore sale prices, not the amount of ore found.",
+    "Double Vein affects ore quantity, while Mining Frenzy can increase that resulting quantity again.",
+    "The chance shown for an ore is used only among ores unlocked by your current pickaxe.",
+    "Prestige requires a high-tier pickaxe, businesses, completed jobs and enough wallet balance; check `/prestige reset` for what is missing.",
+    "Prestige resets ordinary progress but awards an Ender Eye used for permanent upgrades in `/prestige shop`.",
     "Business Optimization affects `/collect`, while Commanding Manager boosts both `/work` and business income. Their bonuses serve different systems.",
     "If a captcha appears, solve it with `/verify code`. The code is case-sensitive; `/verify_regen` replaces an unreadable image.",
 )
 
 
 def mine_embed(user, pickaxe_name, results, quest_rewards=None):
-    found = "\n".join(f"{ORES[name]['emoji']} **{name}**\nAmount found: **{amount}**" for name, amount in results.items())
+    found = "\n".join(f"{ORES[name]['emoji']} {name} x{amount}" for name, amount in results.items())
     emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     embed = disnake.Embed(
         title="Mine",
@@ -42,7 +64,7 @@ def mine_embed(user, pickaxe_name, results, quest_rewards=None):
         color=EMBED_COLOR,
     )
     embed.set_thumbnail(url=user.display_avatar.url)
-    if random.random() < 0.05:
+    if random.random() < 0.03:
         embed.add_field(name="💡 Useful tip", value=random.choice(MINE_TIPS), inline=False)
     add_quest_rewards_to_embed(embed, quest_rewards or [])
     return embed

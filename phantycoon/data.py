@@ -1,8 +1,14 @@
+# Mining cooldown is independent of pickaxe tier. Every equipped pickaxe adds
+# the same delay, and no combination of reductions can take it below the floor.
+BASE_MINE_COOLDOWN = 3.1
+PICKAXE_COOLDOWN_ADD = 1.1
+MIN_MINE_COOLDOWN = 2.0
+
 # Pickaxe data
 PICKAXES = {
     "Stone Pickaxe": {
         "emoji": "<:Stone_Pickaxe:1527863357560979676>",
-        "cooldown": 4.2,
+        "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 2,
         "rolls_min": 2, "rolls_max": 2,
@@ -12,7 +18,7 @@ PICKAXES = {
     },
     "Iron Pickaxe": {
         "emoji": "<:Iron_Pickaxe:1527863356084719767>",
-        "cooldown": 3.8,
+        "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 2,
         "ores": ["Coal", "Copper", "Iron"],
@@ -21,7 +27,7 @@ PICKAXES = {
     },
     "Golden Pickaxe": {
         "emoji": "<:Golden_Pickaxe:1527863354872299631>",
-        "cooldown": 3.5,
+        "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 3,
         "ores": ["Coal", "Copper", "Iron", "Gold"],
@@ -30,7 +36,7 @@ PICKAXES = {
     },
     "Diamond Pickaxe": {
         "emoji": "<:Diamond_Pickaxe:1527863353513607319>",
-        "cooldown": 3.1,
+        "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 2,
         "amount_max": 4,
         "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond"],
@@ -39,7 +45,7 @@ PICKAXES = {
     },
     "Netherite Pickaxe": {
         "emoji": "<:Netherite_Pickaxe:1527863352188080310>",
-        "cooldown": 2.6,
+        "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 3,
         "amount_max": 5,
         "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond"],
