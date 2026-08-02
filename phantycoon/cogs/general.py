@@ -17,28 +17,6 @@ from phantycoon.progression import add_quest_rewards_to_embed, record_quest_even
 
 # ==================== COMMANDS ====================
 
-@bot.slash_command(name="balance", description="Show balance")
-async def balance(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(default=None, description="User")
-):
-    await safe_defer(ctx)
-    target = user or ctx.author
-    user_data = get_user_data(target.id)
-
-    embed = disnake.Embed(
-        title=f"Balance - {target.name}",
-        color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="Balance",
-        value=f"```\n{user_data['wallet']} {CURRENCY}\n```\n{user_data['lapis']} {LAPIS_EMOJI}",
-        inline=False
-    )
-    embed.set_thumbnail(url=target.display_avatar.url)
-    
-    await safe_send(ctx, embed=embed)
-
 
 @bot.slash_command(name="work", description="Earn cash")
 async def work(ctx: disnake.ApplicationCommandInteraction):

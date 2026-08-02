@@ -125,6 +125,8 @@ class TopView(disnake.ui.View):
     async def update_embed(self, inter: disnake.MessageInteraction):
         if self.sort_by not in TOP_SORT_COLUMNS:
             self.sort_by = "balance"
+        if self.mode == "server" and inter.guild is None:
+            self.mode = "global"
 
         conn = get_db()
         cursor = conn.cursor()
@@ -176,6 +178,7 @@ class TopView(disnake.ui.View):
         start = (self.page - 1) * items_per_page
         end = start + items_per_page
         page_users = users[start:end]
+        clan_tags = get_clan_tags(row[0] for row in page_users)
         
         leaderboard = []
         
@@ -200,11 +203,12 @@ class TopView(disnake.ui.View):
                 name = user.display_name if hasattr(user, 'display_name') else user.name
             except (ValueError, disnake.DiscordException):
                 name = f"User {user_id}"
+            tag = f"[{clan_tags[str(user_id)]}] " if str(user_id) in clan_tags else ""
             
             if self.sort_by in currency_fields:
-                leaderboard.append(f"**{idx}. {name}**\n{field_name}: **{value} {CURRENCY}**")
+                leaderboard.append(f"**{idx}. {tag}{name}**\n{field_name}: **{value} {CURRENCY}**")
             else:
-                leaderboard.append(f"**{idx}. {name}**\n{field_name}: **{value}**")
+                leaderboard.append(f"**{idx}. {tag}{name}**\n{field_name}: **{value}**")
         
         embed = disnake.Embed(
             title=title,
@@ -238,10 +242,16 @@ class TopToggleButton(disnake.ui.Button):
         await safe_defer(inter, with_message=False)
         if self.view.author_id is None:
             current = "server" if inter.message.embeds and inter.message.embeds[0].title.startswith("Server") else "global"
+            if current == "global" and inter.guild is None:
+                await safe_embed(inter, "Server leaderboard unavailable", "Run this command inside a Discord server to view that server's leaderboard.", ephemeral=True)
+                return
             view = TopView(inter.author.id, "global" if current == "server" else "server", "balance", 1)
             await view.update_embed(inter)
             return
         new_mode = "server" if self.mode == "global" else "global"
+        if new_mode == "server" and inter.guild is None:
+            await safe_embed(inter, "Server leaderboard unavailable", "Run this command inside a Discord server to view that server's leaderboard.", ephemeral=True)
+            return
         self.view.mode = new_mode
         self.view.page = 1
         await self.view.update_embed(inter)
@@ -315,6 +325,7 @@ async def top(
     start = (page - 1) * items_per_page
     end = start + items_per_page
     page_users = users[start:end]
+    clan_tags = get_clan_tags(row[0] for row in page_users)
     
     leaderboard = []
     for idx, (user_id, total) in enumerate(page_users, start=start + 1):
@@ -323,7 +334,8 @@ async def top(
             name = user.display_name if hasattr(user, 'display_name') else user.name
         except (ValueError, disnake.DiscordException):
             name = f"User {user_id}"
-        leaderboard.append(f"**{idx}. {name}**\nBalance: **{total} {CURRENCY}**")
+        tag = f"[{clan_tags[str(user_id)]}] " if str(user_id) in clan_tags else ""
+        leaderboard.append(f"**{idx}. {tag}{name}**\nBalance: **{total} {CURRENCY}**")
     
     embed = disnake.Embed(
         title="Global Leaderboard",

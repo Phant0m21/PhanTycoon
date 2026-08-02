@@ -6,11 +6,22 @@ from disnake.ext import commands
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.database import *
-from phantycoon.interactions import safe_embed, safe_send
+from phantycoon.interactions import safe_edit, safe_embed, safe_send
 
 
 def format_clan_bonus(level):
     return f"{level * 0.5:.1f}%"
+
+
+def normalize_clan_tag(tag):
+    tag = tag.strip()
+    if not tag or any(character.isspace() for character in tag):
+        return None
+    if any(character in "[]" for character in tag):
+        return None
+    if "<:" in tag or "<a:" in tag or ">" in tag:
+        return None
+    return tag.upper()
 
 
 async def build_clan_embed(user_id, mode="overview"):
@@ -23,10 +34,25 @@ async def build_clan_embed(user_id, mode="overview"):
     embed = disnake.Embed(title=f"[{clan_data['tag']}] {clan_data['name']}", color=EMBED_COLOR)
     if mode == "overview":
         access = "Public" if clan_data["access"] == "public" else "Invite only"
+        member_lines = []
+        for position, member in enumerate(members, start=1):
+            try:
+                user = await bot.fetch_user(int(member["user_id"]))
+                name = user.display_name
+            except (ValueError, disnake.DiscordException):
+                name = f"User {member['user_id']}"
+            leader = " — **Leader**" if member["rank"] == "Leader" else ""
+            member_lines.append(
+                f"{position}. [{clan_data['tag']}] **{name}**{leader} · **{member['total_xp']:,} XP**"
+            )
+        description = clan_data.get("description") or "No clan description yet."
         embed.description = (
-            f"Level: **{clan_data['level']}/{CLAN_MAX_LEVEL}**\nXP: **{xp_text}**\n"
-            f"Members: **{len(members)}/{CLAN_MAX_MEMBERS}**\nAccess: **{access}**\nOre sale value: **+{format_clan_bonus(clan_data['level'])}**\n"
-            f"{clan_data.get('description') or 'No description.'}"
+            f"*{description}*\n"
+            f"Access: **{access}**\n\n"
+            f"Clan Level: **{clan_data['level']}/{CLAN_MAX_LEVEL}** · **{xp_text} XP** to next level\n"
+            f"Ore sell price bonus: **+{format_clan_bonus(clan_data['level'])}**\n"
+            f"Members: **{len(members)}/{CLAN_MAX_MEMBERS}**\n\n"
+            + "\n".join(member_lines)
         )
     elif mode == "members":
         lines = []
@@ -36,7 +62,7 @@ async def build_clan_embed(user_id, mode="overview"):
                 name = user.display_name
             except (ValueError, disnake.DiscordException):
                 name = f"User {member['user_id']}"
-            lines.append(f"**{name}**\nRank: **{member['rank']}**\nTotal XP: **{member['total_xp']:,}**")
+            lines.append(f"**[{clan_data['tag']}] {name}**\nRank: **{member['rank']}**\nTotal XP: **{member['total_xp']:,}**")
         embed.description = "\n".join(lines) or "No members."
     else:
         weekly = get_clan_weekly_contributions(clan_data["clan_id"])
@@ -47,7 +73,7 @@ async def build_clan_embed(user_id, mode="overview"):
                 name = user.display_name
             except (ValueError, disnake.DiscordException):
                 name = f"User {row['user_id']}"
-            lines.append(f"**{name}**\nContributed XP: **{row['xp']:,}**")
+            lines.append(f"**[{clan_data['tag']}] {name}**\nContributed XP: **{row['xp']:,}**")
         embed.description = "\n".join(lines) or "No weekly XP."
     return embed
 
@@ -61,9 +87,13 @@ async def clan(ctx: disnake.ApplicationCommandInteraction):
 async def clan_create(
     ctx: disnake.ApplicationCommandInteraction,
     name: str = commands.Param(description="Clan name", min_length=3, max_length=32),
-    tag: str = commands.Param(description="Clan tag", min_length=2, max_length=6),
+    tag: str = commands.Param(description="Clan tag (standard Discord emoji supported)", min_length=1, max_length=16),
 ):
-    success, status, clan_data = create_clan(ctx.author.id, name.strip(), tag.strip().upper())
+    normalized_tag = normalize_clan_tag(tag)
+    if not normalized_tag:
+        await safe_embed(ctx, "Error", "Clan tags cannot contain spaces, brackets, or custom Discord emoji. Standard Discord emoji are supported.", ephemeral=True)
+        return
+    success, status, clan_data = create_clan(ctx.author.id, name.strip(), normalized_tag)
     if not success:
         messages = {
             "already_in_clan": "You are already in a clan.",
@@ -96,6 +126,7 @@ async def clan_join(
             "not_found": "Clan not found.",
             "full": f"This clan is full. Maximum members: **{CLAN_MAX_MEMBERS}**.",
             "invite_required": "This clan is invite-only. You need an active invite.",
+            "banned": "You are permanently banned from this clan.",
         }
         await safe_embed(ctx, "Error", messages.get(status, "Could not join clan."), ephemeral=True)
         return
@@ -149,11 +180,14 @@ async def clan_info(ctx: disnake.ApplicationCommandInteraction):
 @clan.sub_command(name="edit", description="Edit clan settings")
 async def clan_edit(
     ctx: disnake.ApplicationCommandInteraction,
-    tag: str = commands.Param(default=None, description="New clan tag", min_length=2, max_length=6),
+    tag: str = commands.Param(default=None, description="New clan tag (standard Discord emoji supported)", min_length=1, max_length=16),
     description: str = commands.Param(default=None, description="New clan description", max_length=180),
     access: str = commands.Param(default=None, choices=["public", "invite"], description="Clan access"),
 ):
-    normalized_tag = tag.strip().upper() if tag else None
+    normalized_tag = normalize_clan_tag(tag) if tag else None
+    if tag is not None and not normalized_tag:
+        await safe_embed(ctx, "Error", "Clan tags cannot contain spaces, brackets, or custom Discord emoji. Standard Discord emoji are supported.", ephemeral=True)
+        return
     normalized_description = description.strip() if description is not None else None
     success, status, clan_data = update_clan_settings(
         ctx.author.id,
@@ -171,6 +205,78 @@ async def clan_edit(
         return
 
     await safe_embed(ctx, "Success", f"Clan settings updated: **[{clan_data['tag']}] {clan_data['name']}**.")
+
+
+class ClanDeleteView(disnake.ui.View):
+    def __init__(self, leader_id, clan_id, clan_name):
+        super().__init__(timeout=60)
+        self.leader_id = leader_id
+        self.clan_id = clan_id
+        self.clan_name = clan_name
+
+    async def interaction_check(self, inter):
+        if inter.author.id != self.leader_id:
+            await safe_embed(inter, "Error", "Only the clan leader who started this confirmation can use it.", ephemeral=True)
+            return False
+        return True
+
+    @disnake.ui.button(label="Delete clan", style=disnake.ButtonStyle.danger)
+    async def confirm_delete(self, button, inter):
+        success, status, _ = delete_clan(inter.author.id, self.clan_id)
+        if not success:
+            messages = {
+                "not_in_clan": "You are no longer in a clan.",
+                "not_leader": "Only the current clan leader can delete the clan.",
+                "clan_changed": "Your clan changed after this confirmation was created.",
+            }
+            await safe_edit(inter, embed=disnake.Embed(title="Clan not deleted", description=messages.get(status, "The clan could not be deleted."), color=EMBED_COLOR), view=None)
+            return
+        await safe_edit(inter, embed=disnake.Embed(title="Clan deleted", description=f"**{self.clan_name}** and all of its clan data were permanently deleted.", color=EMBED_COLOR), view=None)
+
+    @disnake.ui.button(label="Cancel", style=disnake.ButtonStyle.secondary)
+    async def cancel_delete(self, button, inter):
+        await safe_edit(inter, embed=disnake.Embed(title="Deletion cancelled", description=f"**{self.clan_name}** was not deleted.", color=EMBED_COLOR), view=None)
+
+
+@clan.sub_command(name="delete", description="Permanently delete your clan")
+async def clan_delete(ctx: disnake.ApplicationCommandInteraction):
+    clan_data = get_user_clan(ctx.author.id)
+    if not clan_data:
+        await safe_embed(ctx, "Error", "You are not in a clan.", ephemeral=True)
+        return
+    if clan_data["rank"] != "Leader":
+        await safe_embed(ctx, "Error", "Only the clan leader can delete the clan.", ephemeral=True)
+        return
+    embed = disnake.Embed(
+        title="Delete clan?",
+        description=(
+            f"Are you sure you want to permanently delete **[{clan_data['tag']}] {clan_data['name']}**?\n\n"
+            "All members, XP, invites, bans, and leaderboard progress belonging to this clan will be deleted. This cannot be undone."
+        ),
+        color=EMBED_COLOR,
+    )
+    await safe_send(ctx, embed=embed, view=ClanDeleteView(ctx.author.id, clan_data["clan_id"], clan_data["name"]), ephemeral=True)
+
+
+@clan.sub_command(name="ban", description="Permanently ban and remove a clan member")
+async def clan_ban(
+    ctx: disnake.ApplicationCommandInteraction,
+    user: disnake.User = commands.Param(description="Clan member to ban"),
+):
+    if user.bot:
+        await safe_embed(ctx, "Error", "Bots cannot be clan members.", ephemeral=True)
+        return
+    success, status, clan_data = ban_clan_member(ctx.author.id, user.id)
+    if not success:
+        messages = {
+            "not_in_clan": "You are not in a clan.",
+            "not_leader": "Only the clan leader can ban members.",
+            "self": "You cannot ban yourself. Use `/clan delete` to delete the clan.",
+            "target_not_member": "This user is not a member of your clan.",
+        }
+        await safe_embed(ctx, "Error", messages.get(status, "Could not ban this member."), ephemeral=True)
+        return
+    await safe_embed(ctx, "Member banned", f"{user.mention} was removed and permanently banned from **[{clan_data['tag']}] {clan_data['name']}**.")
 
 
 @clan.sub_command(name="top", description="Show clan leaderboard")
@@ -218,6 +324,7 @@ async def clan_invite(
         messages = {
             "not_in_clan": "You are not in a clan.",
             "target_in_clan": "This user is already in a clan.",
+            "target_banned": "This user is permanently banned from your clan.",
         }
         await safe_embed(ctx, "Error", messages.get(status, "Could not create invite."), ephemeral=True)
         return

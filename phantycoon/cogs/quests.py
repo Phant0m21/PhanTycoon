@@ -16,20 +16,34 @@ def build_quests_embed(user_id):
     data = get_user_data(user_id)
     reset_at = datetime.fromisoformat(rows[0]["assigned_at"]) + QUEST_DURATION
     embed = disnake.Embed(
-        title="Daily Quests",
-        description=f"Lapis Lazuli: **{data['lapis']}** {LAPIS_EMOJI}\nQuests reset <t:{int(reset_at.timestamp())}:R>",
+        title="PhanTycoon Quest List",
         color=EMBED_COLOR,
     )
+    quest_blocks = []
     for row in rows:
         definition = QUEST_DEFINITIONS[row["quest_key"]]
-        tier_lines = []
+        current_tier = min(row["claimed_tier"] + 1, 3)
+        current_target = row[f"target_{current_tier}"]
+        current_progress = min(row["progress"], current_target)
+        complete = row["claimed_tier"] >= 3
+        heading_progress = "Completed" if complete else f"{current_progress:,}/{current_target:,}"
+        tier_parts = []
         for tier in range(1, 4):
             target = row[f"target_{tier}"]
             reward = row[f"reward_{tier}"]
             completed = row["claimed_tier"] >= tier
-            marker = "Done" if completed else f"{min(row['progress'], target):,}/{target:,}"
-            tier_lines.append(f"Tier {tier}: **{marker}**\nReward: **+{reward} Lapis Lazuli**")
-        embed.add_field(name=definition["name"], value=f"Objective: {definition['unit']}\n" + "\n".join(tier_lines), inline=False)
+            marker = "✓" if completed else f"{min(row['progress'], target):,}/{target:,}"
+            tier_parts.append(f"**T{tier}** {marker} · +{reward} {LAPIS_EMOJI}")
+        quest_blocks.append(
+            f"**{definition['name']} — {heading_progress}**\n"
+            f"*{definition['unit'].capitalize()}*\n"
+            + "  |  ".join(tier_parts)
+        )
+    embed.description = (
+        "Complete all three tiers of each daily quest to earn the maximum rewards.\n"
+        f"Lapis Lazuli: **{data['lapis']}** {LAPIS_EMOJI} · Resets <t:{int(reset_at.timestamp())}:R>\n\n"
+        + "\n\n".join(quest_blocks)
+    )
     return embed
 
 

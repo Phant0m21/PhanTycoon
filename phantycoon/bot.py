@@ -10,4 +10,10 @@ if sys.platform == "win32":
 intents = disnake.Intents.default()
 intents.members = True
 intents.message_content = True
-bot = commands.InteractionBot(intents=intents)
+bot = commands.InteractionBot(
+    intents=intents,
+    # Every global command is available both to server-installed and
+    # user-installed copies of the app. Subcommands inherit these defaults.
+    default_install_types=disnake.ApplicationInstallTypes.all(),
+    default_contexts=disnake.InteractionContextTypes.all(),
+)

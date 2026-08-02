@@ -188,6 +188,17 @@ def init_db():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clan_bans (
+            clan_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            banned_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (clan_id, user_id),
+            FOREIGN KEY (clan_id) REFERENCES clans(clan_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS bot_bans (
             user_id TEXT PRIMARY KEY,
             moderator_id TEXT NOT NULL,
@@ -285,6 +296,7 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_user_id ON clan_members(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_weekly_week ON clan_weekly_xp(week_start)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_invites_user_id ON clan_invites(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_bans_user_id ON clan_bans(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bot_bans_expires_at ON bot_bans(expires_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_owner_status ON tickets(owner_id, status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_quests_user ON daily_quests(user_id)")
@@ -1041,6 +1053,9 @@ def join_clan(user_id, name):
     if not clan:
         return False, "not_found", None
 
+    if is_clan_banned(clan["clan_id"], user_id):
+        return False, "banned", clan
+
     if get_clan_member_count(clan["clan_id"]) >= CLAN_MAX_MEMBERS:
         return False, "full", clan
 
@@ -1074,6 +1089,86 @@ def leave_clan(user_id):
     conn.commit()
     conn.close()
     return True, "ok"
+
+def is_clan_banned(clan_id, user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM clan_bans WHERE clan_id = ? AND user_id = ?",
+        (clan_id, str(user_id)),
+    )
+    banned = cursor.fetchone() is not None
+    conn.close()
+    return banned
+
+def ban_clan_member(leader_id, target_id):
+    clan = get_user_clan(leader_id)
+    if not clan:
+        return False, "not_in_clan", None
+    if clan["rank"] != "Leader":
+        return False, "not_leader", clan
+    if str(leader_id) == str(target_id):
+        return False, "self", clan
+
+    target_clan = get_user_clan(target_id)
+    if not target_clan or target_clan["clan_id"] != clan["clan_id"]:
+        return False, "target_not_member", clan
+
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR REPLACE INTO clan_bans (clan_id, user_id, banned_by, created_at) VALUES (?, ?, ?, ?)",
+        (clan["clan_id"], str(target_id), str(leader_id), now),
+    )
+    cursor.execute(
+        "DELETE FROM clan_members WHERE clan_id = ? AND user_id = ?",
+        (clan["clan_id"], str(target_id)),
+    )
+    cursor.execute(
+        "DELETE FROM clan_invites WHERE clan_id = ? AND user_id = ?",
+        (clan["clan_id"], str(target_id)),
+    )
+    conn.commit()
+    conn.close()
+    return True, "ok", clan
+
+def delete_clan(leader_id, expected_clan_id=None):
+    clan = get_user_clan(leader_id)
+    if not clan:
+        return False, "not_in_clan", None
+    if clan["rank"] != "Leader":
+        return False, "not_leader", clan
+    if expected_clan_id is not None and clan["clan_id"] != expected_clan_id:
+        return False, "clan_changed", clan
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM clans WHERE clan_id = ?", (clan["clan_id"],))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    conn.close()
+    return deleted, "ok" if deleted else "not_found", clan
+
+def get_clan_tags(user_ids):
+    normalized = [str(user_id) for user_id in user_ids]
+    if not normalized:
+        return {}
+    placeholders = ",".join("?" for _ in normalized)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""
+        SELECT m.user_id, c.tag
+        FROM clan_members m
+        JOIN clans c ON c.clan_id = m.clan_id
+        WHERE m.user_id IN ({placeholders})
+        """,
+        normalized,
+    )
+    tags = {row["user_id"]: row["tag"] for row in cursor.fetchall()}
+    conn.close()
+    return tags
 
 def transfer_clan_leadership(leader_id, target_id):
     clan = get_user_clan(leader_id)
@@ -1138,6 +1233,8 @@ def create_clan_invite(inviter_id, target_id):
         return False, "not_in_clan", None
     if get_user_clan(target_id):
         return False, "target_in_clan", clan
+    if is_clan_banned(clan["clan_id"], target_id):
+        return False, "target_banned", clan
 
     now_dt = datetime.now(timezone.utc)
     now = now_dt.isoformat()
