@@ -12,7 +12,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.cogs.shop import shop
 from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
@@ -58,7 +58,7 @@ class UpgradesView(disnake.ui.View):
         
         embed = disnake.Embed(
             title="Upgrades",
-            description=f"Balance: **{user_data['wallet']:,}{CURRENCY}**" + (f" • {notice}" if notice else ""),
+            description=f"Balance: **{user_data['wallet']:,}{CURRENCY}**" + (f"\n{notice}" if notice else ""),
             color=EMBED_COLOR
         )
         
@@ -91,7 +91,7 @@ class UpgradesView(disnake.ui.View):
         add_quest_rewards_to_embed(embed, quest_rewards or [])
         
         self.update_buttons()
-        await safe_send(inter, embed=embed, view=UpgradesView(inter.author.id))
+        await safe_edit(inter, embed=embed, view=self)
     
 class UpgradeButton(disnake.ui.Button):
     def __init__(self, upgrade_id, label, style, disabled):
@@ -144,7 +144,7 @@ class UpgradeButton(disnake.ui.Button):
         
         quest_rewards = record_quest_event(inter.author.id, "cash_spent", price)
         quest_rewards += record_quest_event(inter.author.id, "upgrades_bought", 1)
-        notice = f"Purchased {upgrade_data['name']} L{new_level}"
+        notice = f"Purchased {upgrade_data['name']} — Level {new_level}"
         if self.view.author_id is None:
             await UpgradesView(inter.author.id).update_embed(inter, notice, quest_rewards)
         else:

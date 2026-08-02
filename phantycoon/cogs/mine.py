@@ -34,7 +34,7 @@ MINE_TIPS = (
 
 
 def mine_embed(user, pickaxe_name, results, quest_rewards=None):
-    found = " • ".join(f"{ORES[name]['emoji']} {name} x{amount}" for name, amount in results.items())
+    found = "\n".join(f"{ORES[name]['emoji']} **{name}**\nAmount found: **{amount}**" for name, amount in results.items())
     emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     embed = disnake.Embed(
         title="Mine",
@@ -128,7 +128,7 @@ class MineView(disnake.ui.View):
         update_user_inventory(inter.author.id, inventory)
         update_user_wallet(inter.author.id, user_data["wallet"] + total_earned)
         update_stats(inter.author.id, total_earned=total_earned)
-        embed = disnake.Embed(title="Ore Sale", description=f"**+{total_earned:,}{CURRENCY}** • {total_sold:,} ore sold", color=EMBED_COLOR)
+        embed = disnake.Embed(title="Ore Sale", description=f"Earned: **+{total_earned:,}{CURRENCY}**\nOre sold: **{total_sold:,}**", color=EMBED_COLOR)
         quest_rewards = record_quest_event(inter.author.id, "ore_sales", total_sold)
         quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", total_earned)
         add_quest_rewards_to_embed(embed, quest_rewards)

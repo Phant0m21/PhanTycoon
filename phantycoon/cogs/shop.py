@@ -12,7 +12,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP ====================
@@ -48,7 +48,7 @@ class ShopSelect(disnake.ui.Select):
             )
             for name, data in items.items():
                 check = " ✅" if name in user_businesses else ""
-                lines.append(f"{data['emoji']} **{name}**{check} • {data['price']:,}{CURRENCY} • +{data['income']:,}/6h")
+                lines.append(f"{data['emoji']} **{name}**{check}\nPrice: **{data['price']:,}{CURRENCY}**\nIncome every 6 hours: **+{data['income']:,}{CURRENCY}**")
             embed.description = "\n".join(lines)
                 
         elif category == "pickaxes":
@@ -63,11 +63,11 @@ class ShopSelect(disnake.ui.Select):
                 if not pickaxe_data:
                     continue
                 check = " ✅" if name == current_pickaxe else ""
-                lines.append(f"{pickaxe_data.get('emoji', '')} **{name}**{check} • {data['price']:,}{CURRENCY} • {pickaxe_data.get('cooldown', 0)}s")
+                lines.append(f"{pickaxe_data.get('emoji', '')} **{name}**{check}\nPrice: **{data['price']:,}{CURRENCY}**\nMining cooldown: **{pickaxe_data.get('cooldown', 0)} seconds**")
             embed.description = "\n".join(lines)
                 
         embed.set_footer(text="Purchase with /buy")
-        await safe_send(inter, embed=embed, view=ShopView(inter.author.id))
+        await safe_edit(inter, embed=embed, view=self.view)
 
 
 class ShopView(disnake.ui.View):

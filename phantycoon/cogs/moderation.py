@@ -124,8 +124,8 @@ async def ban_list(
     for index, entry in enumerate(bans[(page - 1) * per_page:page * per_page], start=(page - 1) * per_page + 1):
         until = "Permanent" if entry["is_permanent"] else f"<t:{int(datetime.fromisoformat(entry['expires_at']).timestamp())}:R>"
         source = "Captcha" if entry["source"] == "captcha" else "Moderation"
-        moderator = f" • by <@{entry['moderator_id']}>" if entry["moderator_id"] else ""
-        lines.append(f"**{index}.** <@{entry['user_id']}> (`{entry['user_id']}`)\n{source} • {until}{moderator}\nReason: {entry['reason']}")
+        moderator = f"\nModerator: <@{entry['moderator_id']}>" if entry["moderator_id"] else ""
+        lines.append(f"**{index}.** <@{entry['user_id']}> (`{entry['user_id']}`)\nSource: **{source}**\nDuration: {until}{moderator}\nReason: {entry['reason']}")
     embed = disnake.Embed(title=f"Active bans — {len(bans)}", description="\n\n".join(lines), color=EMBED_COLOR)
     embed.set_footer(text=f"Page {page}/{total_pages}")
     await safe_send(ctx, embed=embed, ephemeral=True)

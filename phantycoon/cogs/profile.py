@@ -8,7 +8,7 @@ from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
 from phantycoon.database import get_active_boosts, get_user_businesses, get_user_clan, get_user_data
 from phantycoon.progression import BOOSTS
-from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 
 def get_clan_value(user_id):
@@ -84,27 +84,27 @@ def build_buffs_embed(target):
     active_boosts = get_active_boosts(target.id)
 
     lines = [
-        f"**Pickaxe** {data.get('current_pickaxe', 'Stone Pickaxe')} • {get_mine_cooldown(target.id):.1f}s • {PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_min', 1)}–{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_max', 1)} rolls",
-        f"**Time Management L{tm_level}** • Mine −{mine_reduction:.1f}s • Work −{work_reduction}m",
-        f"**Business Optimization L{business_level}** • Collect +{business_bonus}%",
-        f"**Ore Miner L{miner_level}** • Ore value +{ore_bonus}%",
-        f"**Commanding Manager L{data.get('prestige_manager_level', 0)}** • Income +{data.get('prestige_manager_level', 0) * 20}%",
-        f"**Starting Capital L{data.get('prestige_capital_level', 0)}**",
-        f"**Double Vein L{data.get('prestige_double_ore_level', 0)}** • Double chance {data.get('prestige_double_ore_level', 0) * 8}%",
-        f"**Diamond Rush L{data.get('prestige_ore_value_level', 0)}** • Ore value +{data.get('prestige_ore_value_level', 0) * 20}%",
-        f"**Clan** • Ore value +{clan_bonus:.1f}%" if clan else "**Clan** • Inactive",
+        f"**Pickaxe**\n{data.get('current_pickaxe', 'Stone Pickaxe')}\nMining cooldown: **{get_mine_cooldown(target.id):.1f} seconds**\nOre rolls per mine: **{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_min', 1)}–{PICKAXES[data.get('current_pickaxe', 'Stone Pickaxe')].get('rolls_max', 1)}**",
+        f"**Time Management — Level {tm_level}**\nMining cooldown reduction: **{mine_reduction:.1f} seconds**\nWork cooldown reduction: **{work_reduction} minutes**",
+        f"**Business Optimization — Level {business_level}**\nBusiness collection income: **+{business_bonus}%**",
+        f"**Ore Miner — Level {miner_level}**\nOre sale value: **+{ore_bonus}%**",
+        f"**Commanding Manager — Level {data.get('prestige_manager_level', 0)}**\nWork and business income: **+{data.get('prestige_manager_level', 0) * 20}%**",
+        f"**Starting Capital — Level {data.get('prestige_capital_level', 0)}**",
+        f"**Double Vein — Level {data.get('prestige_double_ore_level', 0)}**\nDouble ore chance: **{data.get('prestige_double_ore_level', 0) * 8}%**",
+        f"**Diamond Rush — Level {data.get('prestige_ore_value_level', 0)}**\nOre sale value: **+{data.get('prestige_ore_value_level', 0) * 20}%**",
+        f"**Clan bonus**\nOre sale value: **+{clan_bonus:.1f}%**" if clan else "**Clan bonus**\nInactive",
     ]
     if active_boosts:
         boost_lines = []
         for boost_id, expires_at in active_boosts.items():
             boost = BOOSTS.get(boost_id)
             if boost:
-                boost_lines.append(f"**{boost['name']}** • {boost['effect']} • <t:{int(datetime.fromisoformat(expires_at).timestamp())}:R>")
+                boost_lines.append(f"**{boost['name']}**\n{boost['effect']}\nExpires <t:{int(datetime.fromisoformat(expires_at).timestamp())}:R>")
         if boost_lines:
             lines.extend(boost_lines)
     else:
-        lines.append("**Temporary boosts** • Inactive")
-    embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n".join(lines), color=EMBED_COLOR)
+        lines.append("**Temporary boosts**\nInactive")
+    embed = disnake.Embed(title=f"Buffs — {target.name}", description="\n\n".join(lines), color=EMBED_COLOR)
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
 
@@ -125,10 +125,13 @@ def build_stats_embed(target):
     )
     embed.description = (
         f"Registered **{registered}**\n"
-        f"Earned **{user_data['total_earned']:,}{CURRENCY}** • Spent **{user_data['total_spent']:,}{CURRENCY}**\n"
-        f"Work **{user_data['work_earned']:,}{CURRENCY}** ({user_data['work_count']:,}) • "
-        f"Business **{user_data['collect_earned']:,}{CURRENCY}**\n"
-        f"Mines **{user_data['mine_count']:,}** • Games **{user_data['games_played']:,}**"
+        f"Total earned: **{user_data['total_earned']:,}{CURRENCY}**\n"
+        f"Total spent: **{user_data['total_spent']:,}{CURRENCY}**\n"
+        f"Earned from work: **{user_data['work_earned']:,}{CURRENCY}**\n"
+        f"Jobs completed: **{user_data['work_count']:,}**\n"
+        f"Earned from businesses: **{user_data['collect_earned']:,}{CURRENCY}**\n"
+        f"Mining sessions: **{user_data['mine_count']:,}**\n"
+        f"Minigames played: **{user_data['games_played']:,}**"
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
@@ -154,7 +157,7 @@ class ProfileView(disnake.ui.View):
         builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
         embed = builders[self.mode](target)
         self.update_buttons()
-        await safe_send(inter, embed=embed, view=ProfileView(inter.author.id, target.id, self.mode))
+        await safe_edit(inter, embed=embed, view=self)
 
 class ProfileButton(disnake.ui.Button):
     def __init__(self, label, mode, style):
@@ -171,12 +174,10 @@ class ProfileButton(disnake.ui.Button):
             view = ProfileView(inter.author.id, inter.author.id, self.mode)
             target = await inter.bot.fetch_user(inter.author.id)
             builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
-            await safe_send(inter, embed=builders[self.mode](target), view=view)
+            await safe_edit(inter, embed=builders[self.mode](target), view=view)
             return
         self.view.mode = self.mode
-        target = await inter.bot.fetch_user(self.view.target_id)
-        builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
-        await safe_send(inter, embed=builders[self.mode](target), view=ProfileView(inter.author.id, target.id, self.mode))
+        await self.view.update_embed(inter)
 
 
 @bot.slash_command(name="profile", description="Show user profile")

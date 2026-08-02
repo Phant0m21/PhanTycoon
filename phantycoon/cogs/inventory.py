@@ -12,7 +12,7 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
 
 # ==================== INVENTORY ====================
@@ -77,7 +77,7 @@ class InventorySelect(disnake.ui.Select):
                 f"Quantity: {quantity} pcs.\n"
                 "This prestige currency can only be spent in `/prestige shop`."
             )
-            await safe_send(inter, embed=embed)
+            await safe_edit(inter, embed=embed)
             return
         
         view = disnake.ui.View(timeout=None)
@@ -107,7 +107,7 @@ class InventorySelect(disnake.ui.Select):
                 style=disnake.ButtonStyle.primary,
                 custom_id=f"sell_{item_name}"
             ))
-        await safe_send(inter, embed=embed, view=view)
+        await safe_edit(inter, embed=embed, view=view)
 
 
 @bot.slash_command(name="inventory", description="Show inventory")
@@ -206,7 +206,7 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
                 description=f"You equipped **{item_name}**!",
                 color=EMBED_COLOR
             )
-            await safe_send(inter, embed=embed)
+            await safe_edit(inter, embed=embed)
             return
         
         await safe_embed(inter, "Error", "This item cannot be used.", ephemeral=True)
@@ -265,4 +265,4 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             quest_rewards = record_quest_event(inter.author.id, "ore_sales", 1)
             quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", price)
             add_quest_rewards_to_embed(embed, quest_rewards)
-        await safe_send(inter, embed=embed)
+        await safe_edit(inter, embed=embed)

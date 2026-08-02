@@ -81,7 +81,7 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
     
     embed = disnake.Embed(
         title="Income Collected",
-        description=f"**+{total_income:,}{CURRENCY}** • Balance **{new_wallet:,}{CURRENCY}**",
+        description=f"Collected: **+{total_income:,}{CURRENCY}**\nBalance: **{new_wallet:,}{CURRENCY}**",
         color=EMBED_COLOR
     )
     embed.set_thumbnail(url=ctx.author.display_avatar.url)

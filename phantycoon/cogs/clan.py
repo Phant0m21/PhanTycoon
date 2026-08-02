@@ -24,8 +24,8 @@ async def build_clan_embed(user_id, mode="overview"):
     if mode == "overview":
         access = "Public" if clan_data["access"] == "public" else "Invite only"
         embed.description = (
-            f"Level **{clan_data['level']}/{CLAN_MAX_LEVEL}** • XP **{xp_text}**\n"
-            f"Members **{len(members)}/{CLAN_MAX_MEMBERS}** • {access} • Ore **+{format_clan_bonus(clan_data['level'])}**\n"
+            f"Level: **{clan_data['level']}/{CLAN_MAX_LEVEL}**\nXP: **{xp_text}**\n"
+            f"Members: **{len(members)}/{CLAN_MAX_MEMBERS}**\nAccess: **{access}**\nOre sale value: **+{format_clan_bonus(clan_data['level'])}**\n"
             f"{clan_data.get('description') or 'No description.'}"
         )
     elif mode == "members":
@@ -36,7 +36,7 @@ async def build_clan_embed(user_id, mode="overview"):
                 name = user.display_name
             except (ValueError, disnake.DiscordException):
                 name = f"User {member['user_id']}"
-            lines.append(f"**{member['rank']}** • {name} • {member['total_xp']:,} XP")
+            lines.append(f"**{name}**\nRank: **{member['rank']}**\nTotal XP: **{member['total_xp']:,}**")
         embed.description = "\n".join(lines) or "No members."
     else:
         weekly = get_clan_weekly_contributions(clan_data["clan_id"])
@@ -47,7 +47,7 @@ async def build_clan_embed(user_id, mode="overview"):
                 name = user.display_name
             except (ValueError, disnake.DiscordException):
                 name = f"User {row['user_id']}"
-            lines.append(f"{name} • **{row['xp']:,} XP**")
+            lines.append(f"**{name}**\nContributed XP: **{row['xp']:,}**")
         embed.description = "\n".join(lines) or "No weekly XP."
     return embed
 
@@ -192,8 +192,8 @@ async def clan_top(
     lines = []
     for idx, clan_data in enumerate(page_clans, start=start + 1):
         lines.append(
-            f"{idx}. **[{clan_data['tag']}] {clan_data['name']}** • "
-            f"Level {clan_data['level']} • {clan_data['total_xp']:,} XP"
+            f"**{idx}. [{clan_data['tag']}] {clan_data['name']}**\n"
+            f"Level: **{clan_data['level']}**\nTotal XP: **{clan_data['total_xp']:,}**"
         )
 
     embed = disnake.Embed(
