@@ -26,6 +26,30 @@ TOP_SORT_COLUMNS = {
     "prestige_level",
 }
 
+TOP_FIELD_NAMES = {
+    "balance": "Balance",
+    "total_earned": "Total earned",
+    "total_spent": "Total spent",
+    "work_earned": "Earned from /work",
+    "collect_earned": "Earned from /collect",
+    "work_count": "Jobs completed",
+    "games_played": "Games played",
+    "prestige_level": "Prestige",
+}
+
+TOP_CURRENCY_FIELDS = {"balance", "total_earned", "total_spent", "work_earned", "collect_earned"}
+
+
+def format_top_value(sort_by, value):
+    if sort_by in TOP_CURRENCY_FIELDS:
+        return f"{value:,}{CURRENCY}"
+    return f"{value:,}"
+
+
+def format_top_line(position, tag, name, value):
+    tag_text = f"[{tag}] " if tag else ""
+    return f"{position}. {tag_text}{name} - **{value}**"
+
 # ==================== LEADERBOARD WITH MODE AND SORTING ====================
 
 class TopSelect(disnake.ui.Select):
@@ -182,20 +206,7 @@ class TopView(disnake.ui.View):
         
         leaderboard = []
         
-        # Field names
-        field_names = {
-            "balance": "Balance",
-            "total_earned": "Total earned",
-            "total_spent": "Total spent",
-            "work_earned": "Earned from /work",
-            "collect_earned": "Earned from /collect",
-            "work_count": "Jobs completed",
-            "games_played": "Games played",
-            "prestige_level": "Prestige"
-        }
-        
-        field_name = field_names.get(self.sort_by, "Value")
-        currency_fields = ["balance", "total_earned", "total_spent", "work_earned", "collect_earned"]
+        field_name = TOP_FIELD_NAMES.get(self.sort_by, "Value")
         
         for idx, (user_id, value) in enumerate(page_users, start=start + 1):
             try:
@@ -203,19 +214,15 @@ class TopView(disnake.ui.View):
                 name = user.display_name if hasattr(user, 'display_name') else user.name
             except (ValueError, disnake.DiscordException):
                 name = f"User {user_id}"
-            tag = f"[{clan_tags[str(user_id)]}] " if str(user_id) in clan_tags else ""
-            
-            if self.sort_by in currency_fields:
-                leaderboard.append(f"**{idx}. {tag}{name}**\n{field_name}: **{value} {CURRENCY}**")
-            else:
-                leaderboard.append(f"**{idx}. {tag}{name}**\n{field_name}: **{value}**")
+            tag = clan_tags.get(str(user_id), "")
+            leaderboard.append(format_top_line(idx, tag, name, format_top_value(self.sort_by, value)))
         
         embed = disnake.Embed(
             title=title,
-            description=f"Sort: **{field_name}**\n\n" + "\n".join(leaderboard),
+            description="\n".join(leaderboard),
             color=EMBED_COLOR
         )
-        embed.set_footer(text=f"Page {self.page}/{total_pages}")
+        embed.set_footer(text=f"Sort: {field_name} • Page {self.page}/{total_pages}")
         
         self.clear_items()
         self.add_item(TopToggleButton(self.mode))
@@ -276,14 +283,10 @@ class TopPageButton(disnake.ui.Button):
                 if match:
                     current_page = int(match.group(1))
             mode = "server" if embed and embed.title.startswith("Server") else "global"
-            reverse_names = {
-                "Balance": "balance", "Total earned": "total_earned", "Total spent": "total_spent",
-                "Earned from /work": "work_earned", "Earned from /collect": "collect_earned",
-                "Jobs completed": "work_count", "Games played": "games_played", "Prestige": "prestige_level",
-            }
+            reverse_names = {label: key for key, label in TOP_FIELD_NAMES.items()}
             sort_by = "balance"
-            if embed and embed.description:
-                match = re.search(r"Sort: \*\*(.+?)\*\*", embed.description)
+            if embed and embed.footer and embed.footer.text:
+                match = re.search(r"Sort: (.+?) • Page", embed.footer.text)
                 if match:
                     sort_by = reverse_names.get(match.group(1), "balance")
             page = max(1, current_page - 1 if self.direction == "prev" else current_page + 1)
@@ -334,15 +337,15 @@ async def top(
             name = user.display_name if hasattr(user, 'display_name') else user.name
         except (ValueError, disnake.DiscordException):
             name = f"User {user_id}"
-        tag = f"[{clan_tags[str(user_id)]}] " if str(user_id) in clan_tags else ""
-        leaderboard.append(f"**{idx}. {tag}{name}**\nBalance: **{total} {CURRENCY}**")
+        tag = clan_tags.get(str(user_id), "")
+        leaderboard.append(format_top_line(idx, tag, name, format_top_value("balance", total)))
     
     embed = disnake.Embed(
         title="Global Leaderboard",
         description="\n".join(leaderboard),
         color=EMBED_COLOR
     )
-    embed.set_footer(text=f"Page {page}/{total_pages}")
+    embed.set_footer(text=f"Sort: Balance • Page {page}/{total_pages}")
     
     view = TopView(ctx.author.id, mode="global", sort_by="balance", page=page)
     view.clear_items()
