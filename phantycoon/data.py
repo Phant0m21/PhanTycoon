@@ -7,7 +7,7 @@ MIN_MINE_COOLDOWN = 2.0
 # Pickaxe data
 PICKAXES = {
     "Stone Pickaxe": {
-        "emoji": "<:Stone_Pickaxe:1527863357560979676>",
+        "emoji": "<:Stone_Pickaxe:1535563531632771124>",
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 2,
@@ -17,7 +17,7 @@ PICKAXES = {
         "price": 0
     },
     "Iron Pickaxe": {
-        "emoji": "<:Iron_Pickaxe:1527863356084719767>",
+        "emoji": "<:Iron_Pickaxe:1535563530336468992>",
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 2,
@@ -26,7 +26,7 @@ PICKAXES = {
         "price": 6000, "rolls_min": 2, "rolls_max": 3
     },
     "Golden Pickaxe": {
-        "emoji": "<:Golden_Pickaxe:1527863354872299631>",
+        "emoji": "<:Golden_Pickaxe:1535563528990105671>",
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 3,
@@ -35,7 +35,7 @@ PICKAXES = {
         "price": 25000, "rolls_min": 3, "rolls_max": 4
     },
     "Diamond Pickaxe": {
-        "emoji": "<:Diamond_Pickaxe:1527863353513607319>",
+        "emoji": "<:Diamond_Pickaxe:1535563527765368882>",
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 2,
         "amount_max": 4,
@@ -44,7 +44,7 @@ PICKAXES = {
         "price": 100000, "rolls_min": 4, "rolls_max": 5
     },
     "Netherite Pickaxe": {
-        "emoji": "<:Netherite_Pickaxe:1527863352188080310>",
+        "emoji": "<:Netherite_Pickaxe:1535563525999558706>",
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 3,
         "amount_max": 5,
@@ -56,31 +56,31 @@ PICKAXES = {
 
 ORES = {
     "Coal": {
-        "emoji": "<:Coal_Ore:1527864383139479762>",
+        "emoji": "<:Coal_Ore:1535564965514190909>",
         "chance": 60,
         "price_min": 5,
         "price_max": 7
     },
     "Copper": {
-        "emoji": "<:Copper_Ore:1527864384506957905>",
+        "emoji": "<:Copper_Ore:1535564964079734884>",
         "chance": 24,
         "price_min": 15,
         "price_max": 17
     },
     "Iron": {
-        "emoji": "<:Iron_Ore:1527864380719632394>",
+        "emoji": "<:Iron_Ore:1535564962767044648>",
         "chance": 12,
         "price_min": 32,
         "price_max": 37
     },
     "Gold": {
-        "emoji": "<:Gold_Ore:1527864377426968757>",
+        "emoji": "<:Gold_Ore:1535564960904511589>",
         "chance": 3.7,
         "price_min": 72,
         "price_max": 83
     },
     "Diamond": {
-        "emoji": "<:Diamond:1527864376651026569>",
+        "emoji": "<:Diamond_Ore:1535564959323525140>",
         "chance": 0.3,
         "price_min": 250,
         "price_max": 310
@@ -88,8 +88,8 @@ ORES = {
 }
 
 PRESTIGE_TOKEN_NAME = "Ender Eye"
-PRESTIGE_TOKEN_EMOJI = "<:Eye_of_Ender:1527862845205643314>"
-LAPIS_EMOJI = "<:Lapis_Lazuli:1533083418437484656>"
+PRESTIGE_TOKEN_EMOJI = "<:Eye_of_Ender:1535556347381284934>"
+LAPIS_EMOJI = "<:Lapis_Lazuli:1535556256327143445>"
 
 PRESTIGE_UPGRADES = {
     "commanding_manager": {

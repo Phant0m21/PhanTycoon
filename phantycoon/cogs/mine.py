@@ -65,7 +65,7 @@ def mine_embed(user, pickaxe_name, results, quest_rewards=None):
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     if random.random() < 0.03:
-        embed.add_field(name="💡 Useful tip", value=random.choice(MINE_TIPS), inline=False)
+        embed.add_field(name="**Useful tip**", value=random.choice(MINE_TIPS), inline=False)
     add_quest_rewards_to_embed(embed, quest_rewards or [])
     return embed
 
