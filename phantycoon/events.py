@@ -55,7 +55,7 @@ async def on_message(message: disnake.Message):
         await message.guild.ban(
             message.author,
             reason=HONEYPOT_BAN_REASON,
-            delete_message_days=0,
+            clean_history_duration=7,
         )
     except disnake.DiscordException as error:
         print(f"Honeypot ban failed for {message.author.id}: {error!r}")
