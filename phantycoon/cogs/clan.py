@@ -298,8 +298,8 @@ async def clan_top(
     lines = []
     for idx, clan_data in enumerate(page_clans, start=start + 1):
         lines.append(
-            f"**{idx}. [{clan_data['tag']}] {clan_data['name']}**\n"
-            f"Level: **{clan_data['level']}**\nTotal XP: **{clan_data['total_xp']:,}**"
+            f"{idx}. [{clan_data['tag']}] {clan_data['name']} - "
+            f"**Level {clan_data['level']}** · **{clan_data['total_xp']:,} XP**"
         )
 
     embed = disnake.Embed(

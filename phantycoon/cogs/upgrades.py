@@ -137,6 +137,7 @@ class UpgradeButton(disnake.ui.Button):
         # Charge wallet
         new_wallet = user_data["wallet"] - price
         update_user_wallet(inter.author.id, new_wallet)
+        update_stats(inter.author.id, total_spent=price)
         
         # Increase level
         new_level = current_level + 1

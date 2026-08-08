@@ -251,6 +251,14 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bot_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+
     cursor.execute("PRAGMA table_info(users)")
     existing_columns = {row["name"] for row in cursor.fetchall()}
     required_columns = {
@@ -529,6 +537,44 @@ def update_stats(user_id, **kwargs):
     cursor.execute(f"UPDATE users SET {set_clause} WHERE user_id = ?", values)
     conn.commit()
     conn.close()
+
+def get_bot_state(key):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM bot_state WHERE key = ?", (key,))
+    row = cursor.fetchone()
+    conn.close()
+    return row["value"] if row else None
+
+def set_bot_state(key, value):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO bot_state (key, value, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+        """,
+        (key, value, now),
+    )
+    conn.commit()
+    conn.close()
+
+def delete_bot_state(key):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM bot_state WHERE key = ?", (key,))
+    conn.commit()
+    conn.close()
+
+def get_maintenance_reason():
+    return get_bot_state("maintenance_reason")
+
+def set_maintenance_reason(reason):
+    set_bot_state("maintenance_reason", reason)
+
+def clear_maintenance_reason():
+    delete_bot_state("maintenance_reason")
 
 def update_current_pickaxe(user_id, pickaxe_name):
     conn = get_db()
