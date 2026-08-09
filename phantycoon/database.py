@@ -1437,7 +1437,6 @@ def prestige_reset_user(user_id):
     user_data = get_user_data(user_id)
     new_prestige_level = user_data.get("prestige_level", 0) + 1
     starting_cash = get_starting_capital_amount(user_data)
-    now = datetime.now(timezone.utc).isoformat()
 
     conn = get_db()
     cursor = conn.cursor()
@@ -1464,14 +1463,6 @@ def prestige_reset_user(user_id):
             last_work = NULL,
             last_collect = NULL,
             last_mine = NULL,
-            registered_at = ?,
-            total_earned = 0,
-            total_spent = 0,
-            work_earned = 0,
-            collect_earned = 0,
-            work_count = 0,
-            mine_count = 0,
-            games_played = 0,
             current_pickaxe = 'Stone Pickaxe',
             time_management_level = 0,
             business_optimization_level = 0,
@@ -1480,7 +1471,7 @@ def prestige_reset_user(user_id):
             prestige_level = ?
         WHERE user_id = ?
         """,
-        (starting_cash, now, new_prestige_level, str(user_id)),
+        (starting_cash, new_prestige_level, str(user_id)),
     )
     conn.commit()
     conn.close()
