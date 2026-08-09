@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from phantycoon.data import LAPIS_EMOJI, PICKAXES
 from phantycoon.database import (
@@ -10,30 +10,36 @@ from phantycoon.database import (
 
 QUEST_DURATION = timedelta(hours=24)
 REWARD_SETS = ((1, 1, 2), (1, 2, 2), (2, 2, 2))
+SPECIAL_REWARD_SET = (3, 4, 5)
+SPECIAL_DAILY_SLOT = 4
+SPECIAL_DAILY_KEYS = (
+    "mine_actions", "ore_units", "ore_sales", "ore_sale_value",
+    "work_income", "collect_income", "cash_spent", "clan_xp",
+)
 
 # Targets are the tier-I baseline. They are multiplied by the player's progression
 # score, except for cooldown-limited actions whose target generator has a hard cap.
 QUEST_DEFINITIONS = {
-    "mine_actions": {"category": "mining", "name": "Persistent Miner", "unit": "mining actions", "base": (20, 50, 100)},
-    "ore_units": {"category": "mining", "name": "Ore Haul", "unit": "ore collected", "base": (50, 140, 300)},
-    "distinct_ores": {"category": "mining", "name": "Mixed Veins", "unit": "different ore finds", "base": (15, 40, 80)},
-    "ore_sales": {"category": "trading", "name": "Ore Merchant", "unit": "ore sold", "base": (40, 120, 260)},
-    "ore_sale_value": {"category": "trading", "name": "Profitable Shipment", "unit": "$ earned from ore", "base": (500, 1800, 4500), "money": True},
-    "ore_coal": {"category": "ore_hunt", "name": "Coal Contract", "unit": "Coal collected", "base": (30, 90, 180), "ore": "Coal"},
-    "ore_copper": {"category": "ore_hunt", "name": "Copper Contract", "unit": "Copper collected", "base": (15, 45, 100), "ore": "Copper"},
-    "ore_iron": {"category": "ore_hunt", "name": "Iron Contract", "unit": "Iron collected", "base": (8, 25, 60), "ore": "Iron"},
-    "ore_gold": {"category": "ore_hunt", "name": "Gold Rush", "unit": "Gold collected", "base": (3, 9, 20), "ore": "Gold"},
-    "ore_diamond": {"category": "ore_hunt", "name": "Diamond Hunter", "unit": "Diamonds collected", "base": (1, 3, 7), "ore": "Diamond"},
-    "work_actions": {"category": "work", "name": "Reliable Worker", "unit": "work shifts", "base": (1, 2, 4), "limited": True},
-    "work_income": {"category": "work", "name": "Daily Paycheck", "unit": "$ earned from work", "base": (100, 280, 600), "money": True},
-    "collect_actions": {"category": "business", "name": "Business Routine", "unit": "business collections", "base": (1, 2, 3), "limited": True, "business": True},
-    "collect_income": {"category": "business", "name": "Executive Revenue", "unit": "$ collected from businesses", "base": (200, 800, 2000), "money": True, "business": True},
-    "games_played": {"category": "games", "name": "Game Night", "unit": "minigames played", "base": (2, 5, 10)},
-    "games_won": {"category": "games", "name": "Winning Streak", "unit": "minigames won", "base": (1, 3, 6)},
-    "game_winnings": {"category": "games", "name": "Lucky Profit", "unit": "$ won in minigames", "base": (200, 800, 2000), "money": True},
-    "clan_xp": {"category": "clan", "name": "Clan Contributor", "unit": "Clan XP contributed", "base": (30, 90, 200), "clan": True},
-    "cash_spent": {"category": "economy", "name": "Smart Investment", "unit": "$ spent in shops", "base": (1000, 5000, 15000), "money": True},
-    "upgrades_bought": {"category": "economy", "name": "Improve the Operation", "unit": "upgrades purchased", "base": (1, 2, 3)},
+    "mine_actions": {"category": "mining", "name": "Daily Mining", "unit": "mining actions", "description": "Mine {target} time(s).", "base": (20, 50, 100)},
+    "ore_units": {"category": "mining", "name": "Ore Haul", "unit": "ore collected", "description": "Collect {target} ore.", "base": (50, 140, 300)},
+    "distinct_ores": {"category": "mining", "name": "Mixed Veins", "unit": "different ore finds", "description": "Find {target} different ore drops.", "base": (15, 40, 80)},
+    "ore_sales": {"category": "trading", "name": "Ore Merchant", "unit": "ore sold", "description": "Sell {target} ore.", "base": (40, 120, 260)},
+    "ore_sale_value": {"category": "trading", "name": "Profitable Shipment", "unit": "$ earned from ore", "description": "Earn {target}$ from ore sales.", "base": (500, 1800, 4500), "money": True},
+    "ore_coal": {"category": "ore_hunt", "name": "Coal Contract", "unit": "Coal collected", "description": "Collect {target} Coal.", "base": (30, 90, 180), "ore": "Coal"},
+    "ore_copper": {"category": "ore_hunt", "name": "Copper Contract", "unit": "Copper collected", "description": "Collect {target} Copper.", "base": (15, 45, 100), "ore": "Copper"},
+    "ore_iron": {"category": "ore_hunt", "name": "Iron Contract", "unit": "Iron collected", "description": "Collect {target} Iron.", "base": (8, 25, 60), "ore": "Iron"},
+    "ore_gold": {"category": "ore_hunt", "name": "Gold Rush", "unit": "Gold collected", "description": "Collect {target} Gold.", "base": (3, 9, 20), "ore": "Gold"},
+    "ore_diamond": {"category": "ore_hunt", "name": "Diamond Hunter", "unit": "Diamonds collected", "description": "Collect {target} Diamonds.", "base": (1, 3, 7), "ore": "Diamond"},
+    "work_actions": {"category": "work", "name": "Reliable Worker", "unit": "work shifts", "description": "Complete {target} work shift(s).", "base": (1, 2, 4), "limited": True},
+    "work_income": {"category": "work", "name": "Daily Paycheck", "unit": "$ earned from work", "description": "Earn {target}$ from work.", "base": (100, 280, 600), "money": True},
+    "collect_actions": {"category": "business", "name": "Business Routine", "unit": "business collections", "description": "Collect from businesses {target} time(s).", "base": (1, 2, 3), "limited": True, "business": True},
+    "collect_income": {"category": "business", "name": "Executive Revenue", "unit": "$ collected from businesses", "description": "Earn {target}$ from businesses.", "base": (200, 800, 2000), "money": True, "business": True},
+    "games_played": {"category": "games", "name": "Game Night", "unit": "minigames played", "description": "Play {target} minigame(s).", "base": (2, 5, 10), "quest": False},
+    "games_won": {"category": "games", "name": "Winning Streak", "unit": "minigames won", "description": "Win {target} minigame(s).", "base": (1, 3, 6), "quest": False},
+    "game_winnings": {"category": "games", "name": "Lucky Profit", "unit": "$ won in minigames", "description": "Win {target}$ from minigames.", "base": (200, 800, 2000), "money": True, "quest": False},
+    "clan_xp": {"category": "clan", "name": "Clan Contributor", "unit": "Clan XP contributed", "description": "Contribute {target} Clan XP.", "base": (30, 90, 200), "clan": True},
+    "cash_spent": {"category": "economy", "name": "Smart Investment", "unit": "$ spent", "description": "Spend {target}$.", "base": (1000, 5000, 15000), "money": True},
+    "upgrades_bought": {"category": "economy", "name": "Improve the Operation", "unit": "upgrades purchased", "description": "Buy {target} upgrade(s).", "base": (1, 2, 3)},
 }
 
 BOOSTS = {
@@ -61,6 +67,8 @@ def _eligible_quests(user_id):
     clan = bool(get_user_clan(user_id))
     eligible = []
     for key, definition in QUEST_DEFINITIONS.items():
+        if definition.get("quest") is False:
+            continue
         if definition.get("ore") and definition["ore"] not in available_ores:
             continue
         if definition.get("business") and not businesses:
@@ -79,6 +87,23 @@ def _targets(definition, scale):
     return tuple(max(1, round(value * effective)) for value in definition["base"])
 
 
+def quest_period_start(now=None):
+    now = now or datetime.now(timezone.utc)
+    return datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+
+
+def next_quest_reset(now=None):
+    return quest_period_start(now) + QUEST_DURATION
+
+
+def _special_targets(definition, scale):
+    targets = _targets(definition, scale)
+    multiplier = 5 if definition.get("limited") else 8
+    if definition.get("money"):
+        multiplier = 10
+    return tuple(max(1, target * multiplier) for target in targets)
+
+
 def generate_daily_quests(user_id):
     eligible = _eligible_quests(user_id)
     random.shuffle(eligible)
@@ -93,7 +118,11 @@ def generate_daily_quests(user_id):
             break
     if len(chosen) < 3:
         chosen.extend(key for key in eligible if key not in chosen and len(chosen) < 3)
-    now = datetime.now(timezone.utc).isoformat()
+    special_pool = [key for key in eligible if key in SPECIAL_DAILY_KEYS and key not in chosen]
+    if not special_pool:
+        special_pool = [key for key in eligible if key in SPECIAL_DAILY_KEYS]
+    special_key = random.choice(special_pool or eligible)
+    now = quest_period_start().isoformat()
     scale = _progression_scale(user_id)
     quests = []
     for slot, key in enumerate(chosen, start=1):
@@ -102,23 +131,32 @@ def generate_daily_quests(user_id):
             "targets": _targets(QUEST_DEFINITIONS[key], scale),
             "rewards": random.choice(REWARD_SETS),
         })
+    quests.append({
+        "slot": SPECIAL_DAILY_SLOT,
+        "quest_key": special_key,
+        "assigned_at": now,
+        "targets": _special_targets(QUEST_DEFINITIONS[special_key], scale),
+        "rewards": SPECIAL_REWARD_SET,
+    })
     replace_daily_quests(user_id, quests)
     return get_daily_quests(user_id)
 
 
 def ensure_daily_quests(user_id):
     quests = get_daily_quests(user_id)
-    if not quests:
+    if not quests or len(quests) < SPECIAL_DAILY_SLOT:
         return generate_daily_quests(user_id)
     assigned = datetime.fromisoformat(quests[0]["assigned_at"])
     if assigned.tzinfo is None:
         assigned = assigned.replace(tzinfo=timezone.utc)
-    if datetime.now(timezone.utc) >= assigned + QUEST_DURATION:
+    if assigned < quest_period_start():
         return generate_daily_quests(user_id)
     return quests
 
 
 def record_quest_event(user_id, event_key, amount=1):
+    if event_key not in QUEST_DEFINITIONS or QUEST_DEFINITIONS[event_key].get("quest") is False:
+        return []
     ensure_daily_quests(user_id)
     rewards = advance_daily_quests(user_id, event_key, amount)
     for reward in rewards:

@@ -8,41 +8,54 @@ from phantycoon.cogs.shop import shop
 from phantycoon.data import LAPIS_EMOJI
 from phantycoon.database import get_active_boosts, get_user_data, purchase_boost
 from phantycoon.interactions import safe_edit, safe_embed, safe_send
-from phantycoon.progression import BOOSTS, QUEST_DEFINITIONS, QUEST_DURATION, ensure_daily_quests
+from phantycoon.progression import BOOSTS, QUEST_DEFINITIONS, SPECIAL_DAILY_SLOT, ensure_daily_quests, next_quest_reset
+
+
+def format_duration(seconds):
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes = remainder // 60
+    if hours and minutes:
+        return f"{hours}h {minutes}m"
+    if hours:
+        return f"{hours}h"
+    return f"{minutes}m"
+
+
+def quest_line(row):
+    definition = QUEST_DEFINITIONS[row["quest_key"]]
+    completed = row["claimed_tier"] >= 3
+    if completed:
+        status = "COMPLETED"
+        target = row["target_3"]
+    else:
+        tier = row["claimed_tier"] + 1
+        target = row[f"target_{tier}"]
+        status = f"{min(row['progress'], target):,}/{target:,}"
+    description = definition.get("description", definition["unit"]).format(target=f"{target:,}")
+    return f"**{definition['name']} - {status}**\n*{description}*"
 
 
 def build_quests_embed(user_id):
     rows = ensure_daily_quests(user_id)
     data = get_user_data(user_id)
-    reset_at = datetime.fromisoformat(rows[0]["assigned_at"]) + QUEST_DURATION
+    reset_at = next_quest_reset()
+    reset_in = format_duration((reset_at - datetime.now(timezone.utc)).total_seconds())
     embed = disnake.Embed(
-        title="PhanTycoon Quest List",
+        title="Quest List",
         color=EMBED_COLOR,
     )
-    quest_blocks = []
-    for row in rows:
-        definition = QUEST_DEFINITIONS[row["quest_key"]]
-        current_tier = min(row["claimed_tier"] + 1, 3)
-        current_target = row[f"target_{current_tier}"]
-        current_progress = min(row["progress"], current_target)
-        complete = row["claimed_tier"] >= 3
-        heading_progress = "Completed" if complete else f"{current_progress:,}/{current_target:,}"
-        tier_parts = []
-        for tier in range(1, 4):
-            target = row[f"target_{tier}"]
-            reward = row[f"reward_{tier}"]
-            completed = row["claimed_tier"] >= tier
-            marker = "✓" if completed else f"{min(row['progress'], target):,}/{target:,}"
-            tier_parts.append(f"**T{tier}** {marker} · +{reward} {LAPIS_EMOJI}")
-        quest_blocks.append(
-            f"**{definition['name']} — {heading_progress}**\n"
-            f"*{definition['unit'].capitalize()}*\n"
-            + "  |  ".join(tier_parts)
-        )
+    daily_rows = [row for row in rows if row["slot"] != SPECIAL_DAILY_SLOT]
+    special_rows = [row for row in rows if row["slot"] == SPECIAL_DAILY_SLOT]
+    daily_blocks = [quest_line(row) for row in daily_rows]
+    special_block = quest_line(special_rows[0]) if special_rows else "No special quest today."
     embed.description = (
-        "Complete all three tiers of each daily quest to earn the maximum rewards.\n"
-        f"Lapis Lazuli: **{data['lapis']}** {LAPIS_EMOJI} · Resets <t:{int(reset_at.timestamp())}:R>\n\n"
-        + "\n\n".join(quest_blocks)
+        "Quests have multiple tiers, so keep playing to get maximum rewards.\n\n"
+        + "\n".join(daily_blocks)
+        + "\n\n**SPECIAL DAILY QUEST:**\n"
+        + special_block
+        + f"\n\nQuests reset in **{reset_in}**\n"
+        + f"Lapis Lazuli: **{data['lapis']}** {LAPIS_EMOJI}"
     )
     return embed
 
