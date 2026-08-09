@@ -14,6 +14,7 @@ STAT_COLUMNS = {
     "work_earned",
     "collect_earned",
     "work_count",
+    "prestige_work_count",
     "mine_count",
     "games_played",
 }
@@ -96,6 +97,7 @@ def init_db():
             work_earned INTEGER DEFAULT 0,
             collect_earned INTEGER DEFAULT 0,
             work_count INTEGER DEFAULT 0,
+            prestige_work_count INTEGER DEFAULT 0,
             mine_count INTEGER DEFAULT 0,
             games_played INTEGER DEFAULT 0,
             current_pickaxe TEXT DEFAULT 'Stone Pickaxe',
@@ -273,6 +275,7 @@ def init_db():
         "work_earned": "INTEGER DEFAULT 0",
         "collect_earned": "INTEGER DEFAULT 0",
         "work_count": "INTEGER DEFAULT 0",
+        "prestige_work_count": "INTEGER DEFAULT 0",
         "mine_count": "INTEGER DEFAULT 0",
         "games_played": "INTEGER DEFAULT 0",
         "current_pickaxe": "TEXT DEFAULT 'Stone Pickaxe'",
@@ -296,6 +299,8 @@ def init_db():
     for column, definition in required_columns.items():
         if column not in existing_columns:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
+            if column == "prestige_work_count":
+                cursor.execute("UPDATE users SET prestige_work_count = work_count")
 
     cursor.execute("UPDATE users SET wallet = wallet + bank, bank = 0 WHERE bank > 0")
 
@@ -328,7 +333,7 @@ def get_user_data(user_id):
     cursor.execute("""
         SELECT wallet, bank, last_work, last_collect, last_mine, registered_at, 
                total_earned, total_spent, work_earned, collect_earned, 
-               work_count, mine_count, games_played, current_pickaxe,
+               work_count, prestige_work_count, mine_count, games_played, current_pickaxe,
                time_management_level, business_optimization_level, miner_boost_level,
                prestige_level, prestige_manager_level, prestige_capital_level,
                prestige_double_ore_level, prestige_ore_value_level, lapis
@@ -350,7 +355,7 @@ def get_user_data(user_id):
         return {
             "wallet": 0, "bank": 0, "last_work": None, "last_collect": None, "last_mine": None,
             "registered_at": now, "total_earned": 0, "total_spent": 0,
-            "work_earned": 0, "collect_earned": 0, "work_count": 0, "mine_count": 0, "games_played": 0,
+            "work_earned": 0, "collect_earned": 0, "work_count": 0, "prestige_work_count": 0, "mine_count": 0, "games_played": 0,
             "current_pickaxe": "Stone Pickaxe",
             "time_management_level": 0,
             "business_optimization_level": 0,
@@ -376,18 +381,19 @@ def get_user_data(user_id):
         "work_earned": result[8] if result[8] is not None else 0,
         "collect_earned": result[9] if result[9] is not None else 0,
         "work_count": result[10] if result[10] is not None else 0,
-        "mine_count": result[11] if result[11] is not None else 0,
-        "games_played": result[12] if result[12] is not None else 0,
-        "current_pickaxe": result[13] if result[13] is not None else "Stone Pickaxe",
-        "time_management_level": result[14] if result[14] is not None else 0,
-        "business_optimization_level": result[15] if result[15] is not None else 0,
-        "miner_boost_level": result[16] if result[16] is not None else 0,
-        "prestige_level": result[17] if result[17] is not None else 0,
-        "prestige_manager_level": result[18] if result[18] is not None else 0,
-        "prestige_capital_level": result[19] if result[19] is not None else 0,
-        "prestige_double_ore_level": result[20] if result[20] is not None else 0,
-        "prestige_ore_value_level": result[21] if result[21] is not None else 0,
-        "lapis": result[22] if result[22] is not None else 0
+        "prestige_work_count": result[11] if result[11] is not None else 0,
+        "mine_count": result[12] if result[12] is not None else 0,
+        "games_played": result[13] if result[13] is not None else 0,
+        "current_pickaxe": result[14] if result[14] is not None else "Stone Pickaxe",
+        "time_management_level": result[15] if result[15] is not None else 0,
+        "business_optimization_level": result[16] if result[16] is not None else 0,
+        "miner_boost_level": result[17] if result[17] is not None else 0,
+        "prestige_level": result[18] if result[18] is not None else 0,
+        "prestige_manager_level": result[19] if result[19] is not None else 0,
+        "prestige_capital_level": result[20] if result[20] is not None else 0,
+        "prestige_double_ore_level": result[21] if result[21] is not None else 0,
+        "prestige_ore_value_level": result[22] if result[22] is not None else 0,
+        "lapis": result[23] if result[23] is not None else 0
     }
 
 def get_daily_quests(user_id):
@@ -1464,6 +1470,7 @@ def prestige_reset_user(user_id):
             last_collect = NULL,
             last_mine = NULL,
             current_pickaxe = 'Stone Pickaxe',
+            prestige_work_count = 0,
             time_management_level = 0,
             business_optimization_level = 0,
             miner_boost_level = 0,

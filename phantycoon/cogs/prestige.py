@@ -45,9 +45,10 @@ def get_missing_prestige_requirements(user_id):
             f"Balance: **{total_balance:,}/{requirements['balance']:,} {CURRENCY}**"
         )
 
-    if user_data["work_count"] < requirements["work_count"]:
+    prestige_work_count = user_data.get("prestige_work_count", 0)
+    if prestige_work_count < requirements["work_count"]:
         missing.append(
-            f"Jobs completed: **{user_data['work_count']}/{requirements['work_count']}**"
+            f"Jobs this prestige: **{prestige_work_count}/{requirements['work_count']}**"
         )
 
     missing_businesses = sorted(all_businesses - user_businesses)
