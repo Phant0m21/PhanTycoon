@@ -13,6 +13,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP ====================
@@ -27,6 +28,8 @@ class ShopSelect(disnake.ui.Select):
         super().__init__(placeholder="Choose a category", options=options, custom_id="shop_select")
     
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return

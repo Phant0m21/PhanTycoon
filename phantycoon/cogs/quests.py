@@ -4,6 +4,7 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.config import EMBED_COLOR
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.cogs.shop import shop
 from phantycoon.data import LAPIS_EMOJI
 from phantycoon.database import get_active_boosts, get_user_data, purchase_boost
@@ -33,7 +34,8 @@ def quest_line(row):
         target = row[f"target_{tier}"]
         status = f"{min(row['progress'], target):,}/{target:,}"
     description = definition.get("description", definition["unit"]).format(target=f"{target:,}")
-    return f"**{definition['name']} - {status}**\n*{description}*"
+    reward_left = sum(row[f"reward_{tier}"] for tier in range(row["claimed_tier"] + 1, 4))
+    return f"**{definition['name']}** `{status}`\n*{description}* · reward left: **{reward_left} {LAPIS_EMOJI}**"
 
 
 def build_quests_embed(user_id):
@@ -42,7 +44,7 @@ def build_quests_embed(user_id):
     reset_at = next_quest_reset()
     reset_in = format_duration((reset_at - datetime.now(timezone.utc)).total_seconds())
     embed = disnake.Embed(
-        title="Quest List",
+        title="PhanTycoon Contracts",
         color=EMBED_COLOR,
     )
     daily_rows = [row for row in rows if row["slot"] != SPECIAL_DAILY_SLOT]
@@ -50,12 +52,11 @@ def build_quests_embed(user_id):
     daily_blocks = [quest_line(row) for row in daily_rows]
     special_block = quest_line(special_rows[0]) if special_rows else "No special quest today."
     embed.description = (
-        "Quests have multiple tiers, so keep playing to get maximum rewards.\n\n"
-        + "\n".join(daily_blocks)
-        + "\n\n**SPECIAL DAILY QUEST:**\n"
+        "Daily contracts reset together at **00:00 UTC**. Push deeper tiers for more Lapis.\n\n"
+        + "\n\n".join(daily_blocks)
+        + "\n\n**High-Value Contract**\n"
         + special_block
-        + f"\n\nQuests reset in **{reset_in}**\n"
-        + f"Lapis Lazuli: **{data['lapis']}** {LAPIS_EMOJI}"
+        + f"\n\nReset: **{reset_in}** · Wallet Lapis: **{data['lapis']}** {LAPIS_EMOJI}"
     )
     return embed
 
@@ -79,6 +80,8 @@ class BoostButton(disnake.ui.Button):
         self.boost_id = boost_id
 
     async def callback(self, inter):
+        if await block_if_maintenance_active(inter):
+            return
         if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your boost shop.", ephemeral=True)
             return

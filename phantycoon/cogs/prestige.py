@@ -6,6 +6,7 @@ from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import PICKAXES, PRESTIGE_TOKEN_EMOJI, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES
 from phantycoon.database import *
 from phantycoon.interactions import safe_edit, safe_embed, safe_send
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.shop_data import load_shop
 
 
@@ -125,6 +126,8 @@ class PrestigeUpgradeButton(disnake.ui.Button):
         self.upgrade_id = upgrade_id
 
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your prestige shop.", ephemeral=True)
             return

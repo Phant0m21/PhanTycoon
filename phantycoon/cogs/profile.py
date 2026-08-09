@@ -8,6 +8,7 @@ from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
 from phantycoon.database import get_active_boosts, get_mine_cooldown, get_user_businesses, get_user_clan, get_user_data
 from phantycoon.progression import BOOSTS
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 
@@ -159,6 +160,8 @@ class ProfileButton(disnake.ui.Button):
         self.mode = mode
 
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return

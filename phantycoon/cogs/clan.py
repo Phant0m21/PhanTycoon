@@ -6,6 +6,7 @@ from disnake.ext import commands
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
 from phantycoon.database import *
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.interactions import safe_edit, safe_embed, safe_send
 
 
@@ -215,6 +216,8 @@ class ClanDeleteView(disnake.ui.View):
         self.clan_name = clan_name
 
     async def interaction_check(self, inter):
+        if await block_if_maintenance_active(inter):
+            return False
         if inter.author.id != self.leader_id:
             await safe_embed(inter, "Error", "Only the clan leader who started this confirmation can use it.", ephemeral=True)
             return False

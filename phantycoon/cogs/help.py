@@ -2,6 +2,7 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.config import EMBED_COLOR
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 
 
@@ -18,6 +19,8 @@ class HelpSelect(disnake.ui.Select):
         super().__init__(placeholder="Choose a category", options=options, custom_id="help_select")
 
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return

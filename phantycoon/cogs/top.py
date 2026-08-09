@@ -14,6 +14,7 @@ from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 
 TOP_SORT_COLUMNS = {
     "balance",
@@ -115,6 +116,8 @@ class TopSelect(disnake.ui.Select):
         )
     
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
@@ -243,6 +246,8 @@ class TopToggleButton(disnake.ui.Button):
         self.mode = mode
     
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return
@@ -271,6 +276,8 @@ class TopPageButton(disnake.ui.Button):
         self.current_page = current_page
     
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return

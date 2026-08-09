@@ -14,6 +14,7 @@ from phantycoon.database import (
 )
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
 
 
@@ -110,6 +111,8 @@ class MineView(disnake.ui.View):
         self.author_id = author_id
 
     async def interaction_check(self, inter):
+        if await block_if_maintenance_active(inter):
+            return False
         # After a restart persistent legacy buttons become personal shortcuts for whoever clicks.
         if self.author_id is not None and inter.author.id != self.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)

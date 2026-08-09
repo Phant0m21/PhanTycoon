@@ -14,6 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.cogs.shop import shop
+from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP UPGRADES ====================
@@ -104,6 +105,8 @@ class UpgradeButton(disnake.ui.Button):
         self.upgrade_id = upgrade_id
     
     async def callback(self, inter: disnake.MessageInteraction):
+        if await block_if_maintenance_active(inter):
+            return
         if self.view.author_id is not None and inter.author.id != self.view.author_id:
             await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
             return

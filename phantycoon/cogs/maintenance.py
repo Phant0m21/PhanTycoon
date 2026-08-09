@@ -11,22 +11,29 @@ def is_developer(inter):
     return inter.author.id == DEV_ID
 
 
-@bot.slash_command_check
-async def maintenance_check(ctx: disnake.ApplicationCommandInteraction):
-    if is_developer(ctx):
-        return True
+async def block_if_maintenance_active(inter):
+    if is_developer(inter):
+        return False
 
     reason = get_maintenance_reason()
     if not reason:
-        return True
+        return False
 
     embed = disnake.Embed(
         title="PhanTycoon is temporarily closed",
         description=f"**Reason:** {reason}",
         color=EMBED_COLOR,
     )
-    await ctx.response.send_message(embed=embed, ephemeral=True)
-    return False
+    if inter.response.is_done():
+        await inter.followup.send(embed=embed, ephemeral=True)
+    else:
+        await inter.response.send_message(embed=embed, ephemeral=True)
+    return True
+
+
+@bot.slash_command_check
+async def maintenance_check(ctx: disnake.ApplicationCommandInteraction):
+    return not await block_if_maintenance_active(ctx)
 
 
 @bot.slash_command(name="maintenance", description="Developer maintenance mode")
