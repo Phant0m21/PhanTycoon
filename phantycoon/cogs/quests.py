@@ -38,6 +38,20 @@ def quest_line(row):
     return f"**{definition['name']}** `{status}`\n*{description}* · reward left: **{reward_left} {LAPIS_EMOJI}**"
 
 
+def quest_line(row):
+    definition = QUEST_DEFINITIONS[row["quest_key"]]
+    completed = row["claimed_tier"] >= 3
+    if completed:
+        status = "COMPLETED"
+        target = row["target_3"]
+    else:
+        tier = row["claimed_tier"] + 1
+        target = row[f"target_{tier}"]
+        status = f"{min(row['progress'], target):,}/{target:,}"
+    description = definition.get("description", definition["unit"]).format(target=f"{target:,}")
+    return f"**{definition['name']}** `{status}`\n*{description}*"
+
+
 def build_quests_embed(user_id):
     rows = ensure_daily_quests(user_id)
     data = get_user_data(user_id)
@@ -52,7 +66,7 @@ def build_quests_embed(user_id):
     daily_blocks = [quest_line(row) for row in daily_rows]
     special_block = quest_line(special_rows[0]) if special_rows else "No special quest today."
     embed.description = (
-        "Daily contracts reset together at **00:00 UTC**. Push deeper tiers for more Lapis.\n\n"
+        "Daily contracts reset together at **00:00 UTC**. Rewards are random and revealed when a tier is completed.\n\n"
         + "\n\n".join(daily_blocks)
         + "\n\n**High-Value Contract**\n"
         + special_block

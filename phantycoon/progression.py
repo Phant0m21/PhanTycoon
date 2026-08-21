@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, time, timedelta, timezone
 
+from phantycoon.config import CURRENCY
 from phantycoon.data import LAPIS_EMOJI, PICKAXES
 from phantycoon.database import (
     advance_daily_quests, get_active_boosts, get_daily_quests, get_user_businesses,
@@ -104,6 +105,33 @@ def _special_targets(definition, scale):
     return tuple(max(1, target * multiplier) for target in targets)
 
 
+def _quest_reward_type(special=False):
+    cash_weight = 0.62 if special else 0.68
+    return "cash" if random.random() < cash_weight else "lapis"
+
+
+def _quest_reward_amount(reward_type, scale, tier, special=False):
+    if reward_type == "lapis":
+        base = (3, 5, 7) if special else (1, 2, 3)
+        spread = (2, 3, 4) if special else (1, 1, 2)
+        scale_bonus = min(3, int((scale - 1) * (2 if special else 1.2)))
+        return max(1, base[tier - 1] + random.randint(0, spread[tier - 1]) + scale_bonus)
+
+    multiplier = 3.2 if special else 1.0
+    low = int((180 + tier * 170) * scale * multiplier)
+    high = int((360 + tier * 340) * scale * multiplier)
+    return max(50, random.randint(low, max(low + 1, high)))
+
+
+def _quest_rewards(scale, special=False):
+    reward_types = tuple(_quest_reward_type(special) for _ in range(3))
+    rewards = tuple(
+        _quest_reward_amount(reward_type, scale, tier, special)
+        for tier, reward_type in enumerate(reward_types, start=1)
+    )
+    return rewards, reward_types
+
+
 def generate_daily_quests(user_id):
     eligible = _eligible_quests(user_id)
     random.shuffle(eligible)
@@ -126,17 +154,21 @@ def generate_daily_quests(user_id):
     scale = _progression_scale(user_id)
     quests = []
     for slot, key in enumerate(chosen, start=1):
+        rewards, reward_types = _quest_rewards(scale)
         quests.append({
             "slot": slot, "quest_key": key, "assigned_at": now,
             "targets": _targets(QUEST_DEFINITIONS[key], scale),
-            "rewards": random.choice(REWARD_SETS),
+            "rewards": rewards,
+            "reward_types": reward_types,
         })
+    rewards, reward_types = _quest_rewards(scale, special=True)
     quests.append({
         "slot": SPECIAL_DAILY_SLOT,
         "quest_key": special_key,
         "assigned_at": now,
         "targets": _special_targets(QUEST_DEFINITIONS[special_key], scale),
-        "rewards": SPECIAL_REWARD_SET,
+        "rewards": rewards,
+        "reward_types": reward_types,
     })
     replace_daily_quests(user_id, quests)
     return get_daily_quests(user_id)
@@ -175,3 +207,16 @@ def boost_multiplier(user_id, boost_id):
     if boost_id not in get_active_boosts(user_id):
         return 1.0
     return BOOSTS[boost_id]["value"]
+
+
+def add_quest_rewards_to_embed(embed, rewards):
+    if not rewards:
+        return
+    lines = []
+    for item in rewards:
+        if item.get("reward_type") == "cash":
+            reward_text = f"+{item['amount']:,}{CURRENCY}"
+        else:
+            reward_text = f"+{item['amount']:,} {LAPIS_EMOJI}"
+        lines.append(f"**{item['name']} — Tier {item['tier']}**: {reward_text}")
+    embed.add_field(name="Quest reward unlocked!", value="\n".join(lines), inline=False)

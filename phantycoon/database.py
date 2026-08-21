@@ -239,6 +239,9 @@ def init_db():
             reward_1 INTEGER NOT NULL,
             reward_2 INTEGER NOT NULL,
             reward_3 INTEGER NOT NULL,
+            reward_type_1 TEXT NOT NULL DEFAULT 'lapis',
+            reward_type_2 TEXT NOT NULL DEFAULT 'lapis',
+            reward_type_3 TEXT NOT NULL DEFAULT 'lapis',
             claimed_tier INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (user_id, slot)
         )
@@ -301,6 +304,12 @@ def init_db():
             cursor.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
             if column == "prestige_work_count":
                 cursor.execute("UPDATE users SET prestige_work_count = work_count")
+
+    cursor.execute("PRAGMA table_info(daily_quests)")
+    quest_columns = {row["name"] for row in cursor.fetchall()}
+    for column in ("reward_type_1", "reward_type_2", "reward_type_3"):
+        if column not in quest_columns:
+            cursor.execute(f"ALTER TABLE daily_quests ADD COLUMN {column} TEXT NOT NULL DEFAULT 'lapis'")
 
     cursor.execute("UPDATE users SET wallet = wallet + bank, bank = 0 WHERE bank > 0")
 
@@ -413,12 +422,12 @@ def replace_daily_quests(user_id, quests):
             """
             INSERT INTO daily_quests
                 (user_id, slot, quest_key, assigned_at, target_1, target_2, target_3,
-                 reward_1, reward_2, reward_3)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 reward_1, reward_2, reward_3, reward_type_1, reward_type_2, reward_type_3)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 str(user_id), quest["slot"], quest["quest_key"], quest["assigned_at"],
-                *quest["targets"], *quest["rewards"],
+                *quest["targets"], *quest["rewards"], *quest.get("reward_types", ("lapis", "lapis", "lapis")),
             ),
         )
     conn.commit()
@@ -437,19 +446,33 @@ def advance_daily_quests(user_id, event_key, amount):
     for row in cursor.fetchall():
         new_progress = row["progress"] + int(amount)
         new_tier = row["claimed_tier"]
-        lapis_reward = 0
+        payouts = {"lapis": 0, "cash": 0}
         for tier in range(row["claimed_tier"] + 1, 4):
             if new_progress < row[f"target_{tier}"]:
                 break
-            lapis_reward += row[f"reward_{tier}"]
+            reward_type = row[f"reward_type_{tier}"] or "lapis"
+            reward_amount = row[f"reward_{tier}"]
+            payouts[reward_type] = payouts.get(reward_type, 0) + reward_amount
             new_tier = tier
-            rewards.append({"quest_key": event_key, "tier": tier, "lapis": row[f"reward_{tier}"]})
+            rewards.append({
+                "quest_key": event_key,
+                "tier": tier,
+                "reward_type": reward_type,
+                "amount": reward_amount,
+                "lapis": reward_amount if reward_type == "lapis" else 0,
+                "cash": reward_amount if reward_type == "cash" else 0,
+            })
         cursor.execute(
             "UPDATE daily_quests SET progress = ?, claimed_tier = ? WHERE user_id = ? AND slot = ?",
             (new_progress, new_tier, str(user_id), row["slot"]),
         )
-        if lapis_reward:
-            cursor.execute("UPDATE users SET lapis = lapis + ? WHERE user_id = ?", (lapis_reward, str(user_id)))
+        if payouts.get("lapis"):
+            cursor.execute("UPDATE users SET lapis = lapis + ? WHERE user_id = ?", (payouts["lapis"], str(user_id)))
+        if payouts.get("cash"):
+            cursor.execute(
+                "UPDATE users SET wallet = wallet + ?, total_earned = total_earned + ? WHERE user_id = ?",
+                (payouts["cash"], payouts["cash"], str(user_id)),
+            )
     conn.commit()
     conn.close()
     return rewards
@@ -504,6 +527,22 @@ def update_user_wallet(user_id, new_wallet):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET wallet = ? WHERE user_id = ?", (new_wallet, str(user_id)))
+    conn.commit()
+    conn.close()
+
+def update_user_lapis(user_id, new_lapis):
+    get_user_data(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET lapis = ? WHERE user_id = ?", (max(0, int(new_lapis)), str(user_id)))
+    conn.commit()
+    conn.close()
+
+def add_user_lapis(user_id, amount):
+    get_user_data(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET lapis = MAX(0, lapis + ?) WHERE user_id = ?", (int(amount), str(user_id)))
     conn.commit()
     conn.close()
 
@@ -1201,6 +1240,52 @@ def delete_clan(leader_id, expected_clan_id=None):
     deleted = cursor.rowcount > 0
     conn.close()
     return deleted, "ok" if deleted else "not_found", clan
+
+def delete_clan_by_id(clan_id):
+    clan = get_clan_by_id(clan_id)
+    if not clan:
+        return False, None
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM clans WHERE clan_id = ?", (clan_id,))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    conn.close()
+    return deleted, clan
+
+def admin_update_clan(clan_id, name=None, tag=None, description=None, access=None):
+    clan = get_clan_by_id(clan_id)
+    if not clan:
+        return False, "not_found", None
+
+    updates = []
+    values = []
+    if name is not None:
+        existing = get_clan_by_name(name)
+        if existing and existing["clan_id"] != clan_id:
+            return False, "name_taken", clan
+        updates.append("name = ?")
+        values.append(name)
+    if tag is not None:
+        updates.append("tag = ?")
+        values.append(tag)
+    if description is not None:
+        updates.append("description = ?")
+        values.append(description)
+    if access is not None:
+        updates.append("access = ?")
+        values.append(access)
+
+    if not updates:
+        return False, "nothing", clan
+
+    values.append(clan_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE clans SET {', '.join(updates)} WHERE clan_id = ?", values)
+    conn.commit()
+    conn.close()
+    return True, "ok", get_clan_by_id(clan_id)
 
 def get_clan_tags(user_ids):
     normalized = [str(user_id) for user_id in user_ids]

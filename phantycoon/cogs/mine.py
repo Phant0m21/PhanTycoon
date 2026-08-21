@@ -5,12 +5,12 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, EMBED_COLOR
-from phantycoon.data import ORES, PICKAXES, UPGRADES
+from phantycoon.data import LAPIS_EMOJI, ORES, PICKAXES, UPGRADES
 from phantycoon.database import (
     CLAN_MINE_XP, can_mine, get_clan_ore_bonus_multiplier, get_mine_result,
     get_prestige_ore_value_multiplier, get_user_data, get_user_inventory,
     grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
-    update_user_inventory, update_user_wallet,
+    update_user_inventory, update_user_wallet, add_user_lapis,
 )
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
@@ -55,9 +55,37 @@ MINE_TIPS = (
     "If a captcha appears, solve it with `/verify code`. The code is case-sensitive; `/verify_regen` replaces an unreadable image.",
 )
 
+CHEST_EMOJI = "<a:Chest:1540427592652558386>"
+MINE_CHEST_CHANCE = 0.012
 
-def mine_embed(user, pickaxe_name, results, quest_rewards=None):
+
+def roll_mine_chest(user_id, user_data):
+    if random.random() >= MINE_CHEST_CHANCE:
+        return None
+
+    pickaxe_names = list(PICKAXES)
+    pickaxe_tier = pickaxe_names.index(user_data.get("current_pickaxe", "Stone Pickaxe")) if user_data.get("current_pickaxe") in pickaxe_names else 0
+    prestige = user_data.get("prestige_level", 0)
+    scale = 1 + pickaxe_tier * 0.18 + prestige * 0.28
+
+    if random.random() < 0.28:
+        amount = random.randint(1, max(2, int(2 + pickaxe_tier * 0.35 + prestige * 0.45)))
+        add_user_lapis(user_id, amount)
+        return {"type": "lapis", "amount": amount}
+
+    amount = random.randint(int(140 * scale), int(520 * scale))
+    update_user_wallet(user_id, user_data["wallet"] + amount)
+    update_stats(user_id, total_earned=amount)
+    return {"type": "cash", "amount": amount}
+
+
+def mine_embed(user, pickaxe_name, results, quest_rewards=None, chest_reward=None):
     found = "\n".join(f"{ORES[name]['emoji']} {name} x{amount}" for name, amount in results.items())
+    if chest_reward:
+        if chest_reward["type"] == "lapis":
+            found += f"\n{CHEST_EMOJI} Chest: **+{chest_reward['amount']:,} {LAPIS_EMOJI}**"
+        else:
+            found += f"\n{CHEST_EMOJI} Chest: **+{chest_reward['amount']:,}{CURRENCY}**"
     emoji = PICKAXES.get(pickaxe_name, {}).get("emoji", "")
     embed = disnake.Embed(
         title="Mine",
@@ -90,6 +118,7 @@ async def run_mine(inter):
     update_user_inventory(inter.author.id, inventory)
     update_last_mine(inter.author.id)
     update_stats(inter.author.id, mine_count=1)
+    chest_reward = roll_mine_chest(inter.author.id, user_data)
     clan_progress = grant_clan_xp(inter.author.id, CLAN_MINE_XP)
     captcha_triggered, captcha_code = record_mine_for_captcha(inter.author.id, generate_captcha_code)
     quest_rewards = []
@@ -100,7 +129,7 @@ async def run_mine(inter):
         quest_rewards += record_quest_event(inter.author.id, "clan_xp", CLAN_MINE_XP)
     for ore_name, amount in results.items():
         quest_rewards += record_quest_event(inter.author.id, f"ore_{ore_name.lower()}", amount)
-    await safe_send(inter, embed=mine_embed(inter.author, pickaxe_name, results, quest_rewards), view=MineView(inter.author.id))
+    await safe_send(inter, embed=mine_embed(inter.author, pickaxe_name, results, quest_rewards, chest_reward), view=MineView(inter.author.id))
     if captcha_triggered:
         await send_captcha(inter, captcha_code)
 
