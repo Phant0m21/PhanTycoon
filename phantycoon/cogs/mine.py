@@ -12,7 +12,7 @@ from phantycoon.database import (
     grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
     update_user_inventory, update_user_wallet, add_user_lapis,
 )
-from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.interactions import safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
@@ -108,7 +108,6 @@ async def run_mine(inter):
         await safe_embed(inter, "Mine", f"You are mining too fast. Wait **{wait_seconds} sec.**", ephemeral=True)
         return
 
-    await safe_defer(inter)
     user_data = get_user_data(inter.author.id)
     pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
     results = get_mine_result(pickaxe_name, inter.author.id)
@@ -178,7 +177,6 @@ class MineView(disnake.ui.View):
         if not total_earned:
             await safe_embed(inter, "Ore Sale", "You do not have any ore to sell.", ephemeral=True)
             return
-        await safe_defer(inter)
         update_user_inventory(inter.author.id, inventory)
         update_user_wallet(inter.author.id, user_data["wallet"] + total_earned)
         update_stats(inter.author.id, total_earned=total_earned)
