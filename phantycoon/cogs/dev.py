@@ -1,3 +1,6 @@
+import os
+import sys
+
 import disnake
 from disnake.ext import commands
 
@@ -48,7 +51,7 @@ def find_clan(clan_id=None, name=None):
     return None
 
 
-@bot.slash_command(name="dev", description="Developer control center")
+@bot.slash_command(name="zzdev", description="Developer control center")
 async def dev(ctx: disnake.ApplicationCommandInteraction):
     pass
 
@@ -66,10 +69,10 @@ async def dev_settings_panel(ctx: disnake.ApplicationCommandInteraction):
     embed = disnake.Embed(
         title="Developer Settings",
         description=(
-            "`/dev settings money_add` `/money_remove` `/money_set`\n"
-            "`/dev settings lapis_add` `/lapis_remove` `/lapis_set`\n"
-            "`/dev settings clan_delete` `/clan_edit`\n"
-            "`/dev settings maintenance_enable` `/maintenance_disable` `/maintenance_status`"
+            "`/zzdev settings money_add` `/money_remove` `/money_set`\n"
+            "`/zzdev settings lapis_add` `/lapis_remove` `/lapis_set`\n"
+            "`/zzdev settings clan_delete` `/clan_edit`\n"
+            "`/zzdev settings maintenance_enable` `/maintenance_disable` `/maintenance_status`"
         ),
         color=EMBED_COLOR,
     )
@@ -245,3 +248,11 @@ async def dev_maintenance_status(ctx: disnake.ApplicationCommandInteraction):
         f"Maintenance is **{'enabled' if reason else 'disabled'}**." + (f"\nReason: {reason}" if reason else ""),
         ephemeral=True,
     )
+
+
+@dev_settings.sub_command(name="restart", description="Restart the bot")
+async def dev_restart(ctx: disnake.ApplicationCommandInteraction):
+    if not await require_dev(ctx):
+        return
+    await safe_send(ctx, "Restarting PhanTycoon...", ephemeral=True)
+    os.execv(sys.executable, [sys.executable] + sys.argv)

@@ -1,5 +1,3 @@
-import os
-import sys
 import asyncio
 import random
 import re
@@ -9,7 +7,7 @@ import disnake
 from disnake.ext import commands
 
 from phantycoon.bot import bot
-from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
+from phantycoon.config import BOT_START_TIME, CURRENCY, EMBED_COLOR, TOKEN, WORK_MAX, WORK_MIN
 from phantycoon.data import ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
@@ -400,149 +398,4 @@ async def ping(ctx: disnake.ApplicationCommandInteraction):
     await safe_send(ctx, embed=embed)
 
 
-@bot.slash_command(name="restart", description="Restart the bot (developer only)")
-async def restart(ctx: disnake.ApplicationCommandInteraction):
-    if ctx.author.id != DEV_ID:
-        embed = disnake.Embed(
-            title="Error",
-            description="This command is developer-only.",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    embed = disnake.Embed(
-        title="Restarting",
-        description="Bot is restarting...",
-        color=EMBED_COLOR
-    )
-    await safe_send(ctx, embed=embed, ephemeral=True)
-    
-    os.execv(sys.executable, [sys.executable] + sys.argv)
 
-
-@bot.slash_command(name="money", description="Developer money commands")
-async def money(ctx: disnake.ApplicationCommandInteraction):
-    pass
-
-
-@money.sub_command(name="add", description="Give cash to a user (developer only)")
-async def add_money(
-    ctx: disnake.ApplicationCommandInteraction,
-    amount: int = commands.Param(gt=0, description="Amount"),
-    user: disnake.User = commands.Param(description="User")
-):
-    if ctx.author.id != DEV_ID:
-        embed = disnake.Embed(
-            title="Error",
-            description="This command is developer-only.",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    await safe_defer(ctx)
-    user_data = get_user_data(user.id)
-    new_wallet = user_data["wallet"] + amount
-    update_user_wallet(user.id, new_wallet)
-    update_stats(user.id, total_earned=amount)
-    
-    embed = disnake.Embed(
-        title="Cash Granted",
-        description=f"{ctx.author.mention} gave {user.mention} **{amount}** {CURRENCY}",
-        color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="New balance",
-        value=f"{new_wallet} {CURRENCY}",
-        inline=False
-    )
-    embed.set_thumbnail(url=user.display_avatar.url)
-    
-    await safe_send(ctx, embed=embed)
-
-
-@money.sub_command(name="remove", description="Remove cash from a user (developer only)")
-async def remove_money(
-    ctx: disnake.ApplicationCommandInteraction,
-    amount: int = commands.Param(gt=0, description="Amount"),
-    user: disnake.User = commands.Param(description="User")
-):
-    if ctx.author.id != DEV_ID:
-        embed = disnake.Embed(
-            title="Error",
-            description="This command is developer-only.",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    user_data = get_user_data(user.id)
-    
-    if user_data["wallet"] < amount:
-        embed = disnake.Embed(
-            title="Error",
-            description=f"Not enough cash! Balance: {user_data['wallet']} {CURRENCY}",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    await safe_defer(ctx)
-    new_wallet = user_data["wallet"] - amount
-    update_user_wallet(user.id, new_wallet)
-    
-    embed = disnake.Embed(
-        title="Cash Removed",
-        description=f"{ctx.author.mention} removed from {user.mention} **{amount}** {CURRENCY}",
-        color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="New balance",
-        value=f"{new_wallet} {CURRENCY}",
-        inline=False
-    )
-    embed.set_thumbnail(url=user.display_avatar.url)
-    
-    await safe_send(ctx, embed=embed)
-
-
-@money.sub_command(name="set", description="Set a user balance (developer only)")
-async def set_money(
-    ctx: disnake.ApplicationCommandInteraction,
-    amount: int = commands.Param(ge=0, description="Amount (0 to reset)"),
-    user: disnake.User = commands.Param(description="User")
-):
-    if ctx.author.id != DEV_ID:
-        embed = disnake.Embed(
-            title="Error",
-            description="This command is developer-only.",
-            color=EMBED_COLOR
-        )
-        await safe_send(ctx, embed=embed, ephemeral=True)
-        return
-    
-    await safe_defer(ctx)
-    user_data = get_user_data(user.id)
-    old_wallet = user_data["wallet"]
-    
-    update_user_wallet(user.id, amount)
-    
-    embed = disnake.Embed(
-        title="Balance Set",
-        description=f"{ctx.author.mention} set balance for {user.mention} to **{amount}** {CURRENCY}",
-        color=EMBED_COLOR
-    )
-    embed.add_field(
-        name="Old balance",
-        value=f"{old_wallet} {CURRENCY}",
-        inline=False
-    )
-    embed.add_field(
-        name="New balance",
-        value=f"{amount} {CURRENCY}",
-        inline=False
-    )
-    embed.set_thumbnail(url=user.display_avatar.url)
-    
-    await safe_send(ctx, embed=embed)

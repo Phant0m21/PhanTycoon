@@ -4,6 +4,7 @@ import disnake
 from disnake.ext import commands
 
 from phantycoon.bot import bot
+from phantycoon.cogs.dev import dev
 from phantycoon.config import DEV_ID, EMBED_COLOR
 from phantycoon.database import (
     clear_all_captcha_state, create_bot_ban, get_bot_ban,
@@ -55,7 +56,7 @@ def get_expiration(amount, unit):
     return datetime.now(timezone.utc) + timedelta(**{unit: amount})
 
 
-@bot.slash_command(name="ban", description="Bot ban management")
+@dev.sub_command_group(name="ban", description="Manage bot access")
 async def ban(ctx: disnake.ApplicationCommandInteraction):
     pass
 
@@ -131,7 +132,7 @@ async def ban_list(
     await safe_send(ctx, embed=embed, ephemeral=True)
 
 
-@bot.slash_command(name="unban", description="Remove bot and captcha bans from a user")
+@dev.sub_command(name="unban", description="Remove bot and captcha bans from a user")
 async def unban_user(
     ctx: disnake.ApplicationCommandInteraction,
     user: disnake.User = commands.Param(description="User to unban"),

@@ -4,6 +4,7 @@ from phantycoon.database import init_db
 
 
 def load_extensions() -> None:
+    import phantycoon.cogs.dev
     import phantycoon.cogs.general
     import phantycoon.cogs.top
     import phantycoon.cogs.help
@@ -21,7 +22,6 @@ def load_extensions() -> None:
     import phantycoon.cogs.upgrades
     import phantycoon.cogs.prestige
     import phantycoon.cogs.clan
-    import phantycoon.cogs.dev
     import phantycoon.cogs.interface
     import phantycoon.events
 
