@@ -141,10 +141,6 @@ class MineView(disnake.ui.View):
     async def interaction_check(self, inter):
         if await block_if_maintenance_active(inter):
             return False
-        # After a restart persistent legacy buttons become personal shortcuts for whoever clicks.
-        if self.author_id is not None and inter.author.id != self.author_id:
-            await safe_embed(inter, "Error", "This is not your menu.", ephemeral=True)
-            return False
         return True
 
     @disnake.ui.button(label="Mine again", style=disnake.ButtonStyle.primary, custom_id="mine:again")
