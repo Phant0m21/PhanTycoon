@@ -66,6 +66,7 @@ async def build_clan_embed(user_id, mode="overview"):
             lines.append(f"**[{clan_data['tag']}] {name}**\nRank: **{member['rank']}**\nTotal XP: **{member['total_xp']:,}**")
         embed.description = "\n".join(lines) or "No members."
     else:
+        embed.title = f"[{clan_data['tag']}] {clan_data['name']} - Weekly Clan"
         weekly = get_clan_weekly_contributions(clan_data["clan_id"])
         lines = []
         for row in weekly[:10]:
@@ -77,6 +78,40 @@ async def build_clan_embed(user_id, mode="overview"):
             lines.append(f"**[{clan_data['tag']}] {name}**\nContributed XP: **{row['xp']:,}**")
         embed.description = "\n".join(lines) or "No weekly XP."
     return embed
+
+
+class ClanView(disnake.ui.View):
+    def __init__(self, author_id, mode="overview"):
+        super().__init__(timeout=None)
+        self.author_id = author_id
+        self.mode = mode
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.clear_items()
+        self.add_item(ClanButton("Info", "overview", disnake.ButtonStyle.primary))
+        self.add_item(ClanButton("Weekly Clan", "weekly", disnake.ButtonStyle.primary))
+
+    async def update_embed(self, inter):
+        self.update_buttons()
+        await safe_edit(inter, embed=await build_clan_embed(self.author_id, self.mode), view=self)
+
+
+class ClanButton(disnake.ui.Button):
+    def __init__(self, label, mode, style):
+        super().__init__(label=label, style=style, custom_id=f"clan_{mode}")
+        self.mode = mode
+
+    async def callback(self, inter):
+        if await block_if_maintenance_active(inter):
+            return
+        if self.view.author_id is None:
+            self.view.author_id = inter.author.id
+        elif inter.author.id != self.view.author_id:
+            await safe_embed(inter, "Error", "This is not your clan menu.", ephemeral=True)
+            return
+        self.view.mode = self.mode
+        await self.view.update_embed(inter)
 
 
 @bot.slash_command(name="clan", description="Clan commands")
@@ -175,7 +210,7 @@ async def clan_info(ctx: disnake.ApplicationCommandInteraction):
         await safe_embed(ctx, "Error", "You are not in a clan.", ephemeral=True)
         return
 
-    await safe_send(ctx, embed=await build_clan_embed(ctx.author.id))
+    await safe_send(ctx, embed=await build_clan_embed(ctx.author.id), view=ClanView(ctx.author.id))
 
 
 @clan.sub_command(name="edit", description="Edit clan settings")

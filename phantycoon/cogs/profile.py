@@ -4,9 +4,9 @@ import disnake
 from disnake.ext import commands
 
 from phantycoon.bot import bot
-from phantycoon.config import CURRENCY, EMBED_COLOR
+from phantycoon.config import CURRENCY, EMBED_COLOR, EMBLEM_COLORS
 from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
-from phantycoon.database import get_active_boosts, get_mine_cooldown, get_user_businesses, get_user_clan, get_user_data
+from phantycoon.database import get_active_boosts, get_mine_cooldown, get_user_businesses, get_user_clan, get_user_data, get_user_emblem_color, set_emblem_color
 from phantycoon.progression import BOOSTS
 from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
@@ -19,11 +19,15 @@ def get_clan_value(user_id):
     return f"[{clan['tag']}] {clan['name']} ({clan['rank']})"
 
 
+def get_user_embed_color(user_id):
+    return get_user_emblem_color(user_id)
+
+
 def build_profile_embed(target):
     user_data = get_user_data(target.id)
     embed = disnake.Embed(
         title=f"Profile {target.name}",
-        color=EMBED_COLOR,
+        color=get_user_embed_color(target.id),
     )
     embed.add_field(
         name="Prestige",
@@ -54,6 +58,34 @@ def build_profile_embed(target):
         name="Active businesses",
         value="\n".join(businesses) if businesses else "None",
         inline=False,
+    )
+    embed.set_thumbnail(url=target.display_avatar.url)
+    return embed
+
+
+def build_colors_embed(target):
+    user_data = get_user_data(target.id)
+    prestige = user_data.get("prestige_level", 0)
+    active = user_data.get("emblem_color", "White")
+    unlocked = [name for name, data in EMBLEM_COLORS.items() if prestige >= data["prestige"]]
+    next_color = next(
+        ((name, data) for name, data in EMBLEM_COLORS.items() if data["prestige"] > prestige),
+        None,
+    )
+    lines = [
+        f"**{name}** — {EMBLEM_COLORS[name]['reason']}" + (" · **Active**" if name == active else "")
+        for name in unlocked
+    ]
+    description = "\n".join(lines)
+    if next_color:
+        name, data = next_color
+        description += f"\n\nNext color: **{name}** · {data['reason']}"
+    else:
+        description += "\n\nYou have unlocked every color."
+    embed = disnake.Embed(
+        title=f"{target.name}'s Colors",
+        description=description,
+        color=get_user_embed_color(target.id),
     )
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
@@ -99,7 +131,7 @@ def build_buffs_embed(target):
         f"Work cooldown: **{work_cooldown}**\n"
         f"Mining cooldown: **{get_mine_cooldown(target.id):.1f}s**"
     )
-    embed = disnake.Embed(title=f"{target.name}'s current multipliers:", description=description, color=EMBED_COLOR)
+    embed = disnake.Embed(title=f"{target.name}'s current multipliers:", description=description, color=get_user_embed_color(target.id))
     embed.set_thumbnail(url=target.display_avatar.url)
     return embed
 
@@ -116,7 +148,7 @@ def build_stats_embed(target):
 
     embed = disnake.Embed(
         title=f"Stats {target.name}",
-        color=EMBED_COLOR,
+        color=get_user_embed_color(target.id),
     )
     embed.description = (
         f"Registered **{registered}**\n"
@@ -146,10 +178,11 @@ class ProfileView(disnake.ui.View):
         self.add_item(ProfileButton("Profile", "profile", disnake.ButtonStyle.primary))
         self.add_item(ProfileButton("Stats", "stats", disnake.ButtonStyle.primary))
         self.add_item(ProfileButton("Buffs", "buffs", disnake.ButtonStyle.primary))
+        self.add_item(ProfileButton("Color", "colors", disnake.ButtonStyle.primary))
 
     async def update_embed(self, inter: disnake.MessageInteraction):
         target = await inter.bot.fetch_user(self.target_id or inter.author.id)
-        builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
+        builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed, "colors": build_colors_embed}
         embed = builders[self.mode](target)
         self.update_buttons()
         await safe_edit(inter, embed=embed, view=self)
@@ -170,7 +203,7 @@ class ProfileButton(disnake.ui.Button):
         if self.view.author_id is None:
             view = ProfileView(inter.author.id, inter.author.id, self.mode)
             target = await inter.bot.fetch_user(inter.author.id)
-            builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed}
+            builders = {"profile": build_profile_embed, "stats": build_stats_embed, "buffs": build_buffs_embed, "colors": build_colors_embed}
             await safe_edit(inter, embed=builders[self.mode](target), view=view)
             return
         self.view.mode = self.mode
@@ -186,3 +219,22 @@ async def profile(
     view = ProfileView(ctx.author.id, target.id, mode="profile")
     await safe_defer(ctx)
     view.message = await safe_send(ctx, embed=build_profile_embed(target), view=view)
+
+
+@bot.slash_command(name="color", description="Choose your emblem color")
+async def color(
+    ctx: disnake.ApplicationCommandInteraction,
+    color_name: str = commands.Param(choices=list(EMBLEM_COLORS), description="Emblem color"),
+):
+    user_data = get_user_data(ctx.author.id)
+    color_data = EMBLEM_COLORS[color_name]
+    if user_data.get("prestige_level", 0) < color_data["prestige"]:
+        await safe_embed(
+            ctx,
+            "Error",
+            f"**{color_name}** unlocks at **Prestige {color_data['prestige']}**.",
+            ephemeral=True,
+        )
+        return
+    set_emblem_color(ctx.author.id, color_name)
+    await safe_embed(ctx, "Color updated", f"Your active emblem color is now **{color_name}**.")

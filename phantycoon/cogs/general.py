@@ -12,20 +12,23 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import LAPIS_EMOJI, ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_send
-from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.progression import add_quest_rewards_to_embed, expired_boost_notice, record_quest_event
 
 # ==================== COMMANDS ====================
 
 
 @bot.slash_command(name="work", description="Earn cash")
 async def work(ctx: disnake.ApplicationCommandInteraction):
+    notice = expired_boost_notice(ctx.author.id)
+    if notice:
+        await safe_embed(ctx, "Boost ended", notice, ephemeral=True)
     can, next_time = can_work(ctx.author.id)
     if not can:
         embed = disnake.Embed(
             title="Work is on cooldown",
             description=f"You already worked. Next shift is available <t:{int(next_time.timestamp())}:R>",
-            color=EMBED_COLOR
+            color=get_user_emblem_color(ctx.author.id)
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         await safe_send(ctx, embed=embed, ephemeral=True)

@@ -12,19 +12,22 @@ from phantycoon.config import BOT_START_TIME, CURRENCY, DEV_ID, EMBED_COLOR, TOK
 from phantycoon.data import ORES, PICKAXES, PRESTIGE_TOKEN_EMOJI, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
-from phantycoon.interactions import safe_defer, safe_send
-from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
+from phantycoon.interactions import safe_defer, safe_embed, safe_send
+from phantycoon.progression import add_quest_rewards_to_embed, expired_boost_notice, record_quest_event
 
 # ==================== COLLECT ====================
 
 @bot.slash_command(name="collect", description="Collect business income (every 6 hours)")
 async def collect(ctx: disnake.ApplicationCommandInteraction):
+    notice = expired_boost_notice(ctx.author.id)
+    if notice:
+        await safe_embed(ctx, "Boost ended", notice, ephemeral=True)
     can, next_time = can_collect(ctx.author.id)
     if not can:
         embed = disnake.Embed(
             title="Collect is on cooldown",
             description=f"Next collect is available <t:{int(next_time.timestamp())}:R>",
-            color=EMBED_COLOR
+                color=get_user_emblem_color(ctx.author.id)
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         await safe_send(ctx, embed=embed, ephemeral=True)

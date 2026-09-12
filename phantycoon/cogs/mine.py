@@ -9,13 +9,14 @@ from phantycoon.data import LAPIS_EMOJI, ORES, PICKAXES, UPGRADES
 from phantycoon.database import (
     CLAN_MINE_XP, can_mine, get_clan_ore_bonus_multiplier, get_mine_result,
     get_prestige_ore_value_multiplier, get_user_data, get_user_inventory,
-    grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
+    consume_expired_boosts, grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
+        get_user_emblem_color, grant_clan_xp, record_mine_for_captcha, update_last_mine, update_stats,
     update_user_inventory, update_user_wallet, add_user_lapis,
 )
 from phantycoon.interactions import safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 from phantycoon.cogs.maintenance import block_if_maintenance_active
-from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.progression import BOOSTS, add_quest_rewards_to_embed, boost_multiplier, expired_boost_notice, record_quest_event
 
 
 MINE_TIPS = (
@@ -90,7 +91,7 @@ def mine_embed(user, pickaxe_name, results, quest_rewards=None, chest_reward=Non
     embed = disnake.Embed(
         title="Mine",
         description=f"{found}\n{emoji} **{pickaxe_name}**",
-        color=EMBED_COLOR,
+        color=get_user_emblem_color(user.id),
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     if random.random() < 0.03:
@@ -100,6 +101,9 @@ def mine_embed(user, pickaxe_name, results, quest_rewards=None, chest_reward=Non
 
 
 async def run_mine(inter):
+    notice = expired_boost_notice(inter.author.id)
+    if notice:
+        await safe_embed(inter, "Boost ended", notice, ephemeral=True)
     if await block_if_captcha_active(inter):
         return
     can, next_time, _ = can_mine(inter.author.id)

@@ -2,7 +2,7 @@ import random
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-from phantycoon.config import DB_FILE
+from phantycoon.config import DB_FILE, EMBLEM_COLORS
 from phantycoon.data import (
     BASE_MINE_COOLDOWN, MIN_MINE_COOLDOWN, ORES, PICKAXES,
     PICKAXE_COOLDOWN_ADD, PRESTIGE_TOKEN_NAME, PRESTIGE_UPGRADES, UPGRADES,
@@ -116,7 +116,8 @@ def init_db():
             captcha_banned_until TEXT DEFAULT NULL,
             captcha_mine_actions INTEGER DEFAULT 0,
             captcha_mine_limit INTEGER DEFAULT 0,
-            lapis INTEGER DEFAULT 0
+            lapis INTEGER DEFAULT 0,
+            emblem_color TEXT DEFAULT 'White'
         )
     """)
     
@@ -298,6 +299,7 @@ def init_db():
         "captcha_mine_actions": "INTEGER DEFAULT 0",
         "captcha_mine_limit": "INTEGER DEFAULT 0",
         "lapis": "INTEGER DEFAULT 0",
+        "emblem_color": "TEXT DEFAULT 'White'",
     }
     for column, definition in required_columns.items():
         if column not in existing_columns:
@@ -345,7 +347,7 @@ def get_user_data(user_id):
                work_count, prestige_work_count, mine_count, games_played, current_pickaxe,
                time_management_level, business_optimization_level, miner_boost_level,
                prestige_level, prestige_manager_level, prestige_capital_level,
-               prestige_double_ore_level, prestige_ore_value_level, lapis
+               prestige_double_ore_level, prestige_ore_value_level, lapis, emblem_color
         FROM users WHERE user_id = ?
     """, (str(user_id),))
     result = cursor.fetchone()
@@ -374,7 +376,8 @@ def get_user_data(user_id):
             "prestige_capital_level": 0,
             "prestige_double_ore_level": 0,
             "prestige_ore_value_level": 0,
-            "lapis": 0
+            "lapis": 0,
+            "emblem_color": "White"
         }
     
     conn.close()
@@ -402,7 +405,8 @@ def get_user_data(user_id):
         "prestige_capital_level": result[20] if result[20] is not None else 0,
         "prestige_double_ore_level": result[21] if result[21] is not None else 0,
         "prestige_ore_value_level": result[22] if result[22] is not None else 0,
-        "lapis": result[23] if result[23] is not None else 0
+        "lapis": result[23] if result[23] is not None else 0,
+        "emblem_color": result[24] or "White"
     }
 
 def get_daily_quests(user_id):
@@ -481,12 +485,43 @@ def get_active_boosts(user_id):
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM active_boosts WHERE expires_at <= ?", (now,))
     cursor.execute("SELECT boost_id, expires_at FROM active_boosts WHERE user_id = ?", (str(user_id),))
-    boosts = {row["boost_id"]: row["expires_at"] for row in cursor.fetchall()}
-    conn.commit()
+    boosts = {row["boost_id"]: row["expires_at"] for row in cursor.fetchall() if row["expires_at"] > now}
     conn.close()
     return boosts
+
+def consume_expired_boosts(user_id):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT boost_id FROM active_boosts WHERE user_id = ? AND expires_at <= ?",
+        (str(user_id), now),
+    )
+    boost_ids = [row["boost_id"] for row in cursor.fetchall()]
+    if boost_ids:
+        cursor.execute(
+            "DELETE FROM active_boosts WHERE user_id = ? AND expires_at <= ?",
+            (str(user_id), now),
+        )
+        conn.commit()
+    conn.close()
+    return boost_ids
+
+def set_emblem_color(user_id, color_name):
+    if color_name not in EMBLEM_COLORS:
+        return False
+    get_user_data(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET emblem_color = ? WHERE user_id = ?", (color_name, str(user_id)))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_user_emblem_color(user_id):
+    data = get_user_data(user_id)
+    return EMBLEM_COLORS.get(data.get("emblem_color"), EMBLEM_COLORS["White"])["hex"]
 
 def purchase_boost(user_id, boost_id, cost, duration_seconds):
     get_user_data(user_id)

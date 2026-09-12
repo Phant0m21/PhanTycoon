@@ -2,6 +2,7 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.cogs.help import HelpView
+from phantycoon.cogs.clan import ClanView
 from phantycoon.cogs.inventory import InventorySelect
 from phantycoon.cogs.prestige import PrestigeShopView
 from phantycoon.cogs.profile import ProfileView
@@ -18,6 +19,7 @@ async def register_persistent_interface():
     bot.add_view(HelpView(None))
     bot.add_view(ShopView(None))
     bot.add_view(ProfileView(None))
+    bot.add_view(ClanView(None))
     bot.add_view(TopView(None))
     bot.add_view(UpgradesView(None))
     bot.add_view(PrestigeShopView(None))

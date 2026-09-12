@@ -4,7 +4,7 @@ from datetime import datetime, time, timedelta, timezone
 from phantycoon.config import CURRENCY
 from phantycoon.data import LAPIS_EMOJI, PICKAXES
 from phantycoon.database import (
-    advance_daily_quests, get_active_boosts, get_daily_quests, get_user_businesses,
+    advance_daily_quests, consume_expired_boosts, get_active_boosts, get_daily_quests, get_user_businesses,
     get_user_clan, get_user_data, replace_daily_quests,
 )
 
@@ -48,6 +48,14 @@ BOOSTS = {
     "mine_haste": {"name": "Mine Haste", "cost": 5, "minutes": 15, "effect": "−35% mining cooldown", "value": 0.65},
     "prospector": {"name": "Prospector", "cost": 5, "minutes": 20, "effect": "+40% ore sale value", "value": 1.40},
 }
+
+
+def expired_boost_notice(user_id):
+    expired = consume_expired_boosts(user_id)
+    if not expired:
+        return None
+    names = [BOOSTS[boost_id]["name"] for boost_id in expired if boost_id in BOOSTS]
+    return "Boost ended: " + ", ".join(f"**{name}**" for name in names) + "." if names else None
 
 
 def _progression_scale(user_id):
