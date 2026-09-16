@@ -14,7 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.cogs.maintenance import block_if_maintenance_active
-from phantycoon.progression import add_quest_rewards_to_embed, boost_multiplier, record_quest_event
+from phantycoon.progression import add_prestige_ready_notice, add_quest_rewards_to_embed, boost_multiplier, record_quest_event
 
 # ==================== INVENTORY ====================
 
@@ -80,7 +80,7 @@ class InventorySelect(disnake.ui.Select):
                 f"Quantity: {quantity} pcs.\n"
                 "This prestige currency can only be spent in `/prestige shop`."
             )
-            await safe_edit(inter, embed=embed)
+            await safe_send(inter, embed=embed, ephemeral=True)
             return
         
         view = disnake.ui.View(timeout=None)
@@ -110,7 +110,7 @@ class InventorySelect(disnake.ui.Select):
                 style=disnake.ButtonStyle.primary,
                 custom_id=f"sell_{item_name}"
             ))
-        await safe_edit(inter, embed=embed, view=view)
+        await safe_send(inter, embed=embed, view=view, ephemeral=True)
 
 
 @bot.slash_command(name="inventory", description="Show inventory")
@@ -270,4 +270,5 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
             quest_rewards = record_quest_event(inter.author.id, "ore_sales", 1)
             quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", price)
             add_quest_rewards_to_embed(embed, quest_rewards)
+        add_prestige_ready_notice(embed, inter.author.id)
         await safe_edit(inter, embed=embed)

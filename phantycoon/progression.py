@@ -5,8 +5,9 @@ from phantycoon.config import CURRENCY
 from phantycoon.data import LAPIS_EMOJI, PICKAXES
 from phantycoon.database import (
     advance_daily_quests, consume_expired_boosts, get_active_boosts, get_daily_quests, get_user_businesses,
-    get_user_clan, get_user_data, replace_daily_quests,
+    get_user_clan, get_user_data, get_user_inventory, mark_prestige_ready_notified, replace_daily_quests,
 )
+from phantycoon.shop_data import load_shop
 
 
 QUEST_DURATION = timedelta(hours=24)
@@ -31,6 +32,8 @@ QUEST_DEFINITIONS = {
     "ore_iron": {"category": "ore_hunt", "name": "Iron Contract", "unit": "Iron collected", "description": "Collect {target} Iron.", "base": (8, 25, 60), "ore": "Iron"},
     "ore_gold": {"category": "ore_hunt", "name": "Gold Rush", "unit": "Gold collected", "description": "Collect {target} Gold.", "base": (3, 9, 20), "ore": "Gold"},
     "ore_diamond": {"category": "ore_hunt", "name": "Diamond Hunter", "unit": "Diamonds collected", "description": "Collect {target} Diamonds.", "base": (1, 3, 7), "ore": "Diamond"},
+    "ore_quartz": {"category": "ore_hunt", "name": "Quartz Seeker", "unit": "Quartz collected", "description": "Collect {target} Quartz.", "base": (2, 6, 15), "ore": "Quartz"},
+    "ore_iridium": {"category": "ore_hunt", "name": "Iridium Prospect", "unit": "Iridium collected", "description": "Collect {target} Iridium.", "base": (1, 2, 5), "ore": "Iridium"},
     "work_actions": {"category": "work", "name": "Reliable Worker", "unit": "work shifts", "description": "Complete {target} work shift(s).", "base": (1, 2, 4), "limited": True},
     "work_income": {"category": "work", "name": "Daily Paycheck", "unit": "$ earned from work", "description": "Earn {target}$ from work.", "base": (100, 280, 600), "money": True},
     "collect_actions": {"category": "business", "name": "Business Routine", "unit": "business collections", "description": "Collect from businesses {target} time(s).", "base": (1, 2, 3), "limited": True, "business": True},
@@ -56,6 +59,37 @@ def expired_boost_notice(user_id):
         return None
     names = [BOOSTS[boost_id]["name"] for boost_id in expired if boost_id in BOOSTS]
     return "Boost ended: " + ", ".join(f"**{name}**" for name in names) + "." if names else None
+
+
+def prestige_ready_notice(user_id):
+    user_data = get_user_data(user_id)
+    if user_data.get("prestige_ready_notified"):
+        return None
+
+    next_prestige = user_data.get("prestige_level", 0) + 1
+    if user_data.get("wallet", 0) < 1_000_000 * next_prestige:
+        return None
+    if user_data.get("prestige_work_count", 0) < 250 * next_prestige:
+        return None
+
+    shop = load_shop()
+    if set(shop.get("business", {})) - set(get_user_businesses(user_id)):
+        return None
+
+    required_pickaxe = "Netherite Pickaxe" if next_prestige >= 3 else "Diamond Pickaxe"
+    inventory = get_user_inventory(user_id)
+    if user_data.get("current_pickaxe") != required_pickaxe and inventory.get(required_pickaxe, 0) <= 0:
+        return None
+
+    if not mark_prestige_ready_notified(user_id):
+        return None
+    return f"All requirements are complete. Use **`/prestige reset`** to reach prestige {next_prestige}."
+
+
+def add_prestige_ready_notice(embed, user_id):
+    notice = prestige_ready_notice(user_id)
+    if notice:
+        embed.add_field(name="Prestige ready!", value=notice, inline=False)
 
 
 def _progression_scale(user_id):

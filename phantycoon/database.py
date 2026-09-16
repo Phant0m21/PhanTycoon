@@ -51,11 +51,14 @@ NAME_MIGRATIONS = {
     "Золотая кирка": "Golden Pickaxe",
     "Алмазная кирка": "Diamond Pickaxe",
     "Незеритовая кирка": "Netherite Pickaxe",
+    "Иридиевая кирка": "Iridium Pickaxe",
     "Уголь": "Coal",
     "Медь": "Copper",
     "Железо": "Iron",
     "Золото": "Gold",
     "Алмаз": "Diamond",
+    "Кварц": "Quartz",
+    "Иридиевая руда": "Iridium",
     "Шаурмичная": "Shawarma Stand",
     "Автомойка": "Car Wash",
     "Компьютерный клуб": "Gaming Cafe",
@@ -117,7 +120,8 @@ def init_db():
             captcha_mine_actions INTEGER DEFAULT 0,
             captcha_mine_limit INTEGER DEFAULT 0,
             lapis INTEGER DEFAULT 0,
-            emblem_color TEXT DEFAULT 'White'
+            emblem_color TEXT DEFAULT 'White',
+            prestige_ready_notified INTEGER DEFAULT 0
         )
     """)
     
@@ -300,6 +304,7 @@ def init_db():
         "captcha_mine_limit": "INTEGER DEFAULT 0",
         "lapis": "INTEGER DEFAULT 0",
         "emblem_color": "TEXT DEFAULT 'White'",
+        "prestige_ready_notified": "INTEGER DEFAULT 0",
     }
     for column, definition in required_columns.items():
         if column not in existing_columns:
@@ -347,7 +352,8 @@ def get_user_data(user_id):
                work_count, prestige_work_count, mine_count, games_played, current_pickaxe,
                time_management_level, business_optimization_level, miner_boost_level,
                prestige_level, prestige_manager_level, prestige_capital_level,
-               prestige_double_ore_level, prestige_ore_value_level, lapis, emblem_color
+               prestige_double_ore_level, prestige_ore_value_level, lapis, emblem_color,
+               prestige_ready_notified
         FROM users WHERE user_id = ?
     """, (str(user_id),))
     result = cursor.fetchone()
@@ -377,7 +383,8 @@ def get_user_data(user_id):
             "prestige_double_ore_level": 0,
             "prestige_ore_value_level": 0,
             "lapis": 0,
-            "emblem_color": "White"
+            "emblem_color": "White",
+            "prestige_ready_notified": 0,
         }
     
     conn.close()
@@ -406,7 +413,8 @@ def get_user_data(user_id):
         "prestige_double_ore_level": result[21] if result[21] is not None else 0,
         "prestige_ore_value_level": result[22] if result[22] is not None else 0,
         "lapis": result[23] if result[23] is not None else 0,
-        "emblem_color": result[24] or "White"
+        "emblem_color": result[24] or "White",
+        "prestige_ready_notified": result[25] or 0,
     }
 
 def get_daily_quests(user_id):
@@ -662,6 +670,18 @@ def update_current_pickaxe(user_id, pickaxe_name):
     cursor.execute("UPDATE users SET current_pickaxe = ? WHERE user_id = ?", (pickaxe_name, str(user_id)))
     conn.commit()
     conn.close()
+
+def mark_prestige_ready_notified(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET prestige_ready_notified = 1 WHERE user_id = ? AND prestige_ready_notified = 0",
+        (str(user_id),),
+    )
+    changed = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
 
 def update_upgrade_level(user_id, upgrade_name, level):
     if upgrade_name not in UPGRADE_COLUMNS:
@@ -1595,7 +1615,8 @@ def prestige_reset_user(user_id):
             business_optimization_level = 0,
             miner_boost_level = 0,
             lapis = 0,
-            prestige_level = ?
+            prestige_level = ?,
+            prestige_ready_notified = 0
         WHERE user_id = ?
         """,
         (starting_cash, new_prestige_level, str(user_id)),
@@ -1611,7 +1632,10 @@ def buy_prestige_upgrade(user_id, upgrade_id):
     user_data = get_user_data(user_id)
     column = PRESTIGE_UPGRADE_COLUMNS[upgrade_id]
     current_level = user_data.get(column, 0)
-    max_level = PRESTIGE_UPGRADES[upgrade_id]["max_level"]
+    max_level = min(
+        PRESTIGE_UPGRADES[upgrade_id]["max_level"],
+        1 + user_data.get("prestige_level", 0) // 5,
+    )
     if current_level >= max_level:
         return False, "maxed", current_level
 

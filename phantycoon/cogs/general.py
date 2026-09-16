@@ -13,7 +13,7 @@ from phantycoon.data import LAPIS_EMOJI, ORES, PICKAXES, UPGRADES
 from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
-from phantycoon.progression import add_quest_rewards_to_embed, expired_boost_notice, record_quest_event
+from phantycoon.progression import add_prestige_ready_notice, add_quest_rewards_to_embed, expired_boost_notice, record_quest_event
 
 # ==================== COMMANDS ====================
 
@@ -59,6 +59,7 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     if clan_progress:
         quest_rewards += record_quest_event(ctx.author.id, "clan_xp", CLAN_WORK_XP)
     add_quest_rewards_to_embed(embed, quest_rewards)
+    add_prestige_ready_notice(embed, ctx.author.id)
     
     await safe_send(ctx, embed=embed)
 

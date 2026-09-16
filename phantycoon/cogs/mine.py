@@ -16,7 +16,7 @@ from phantycoon.database import (
 from phantycoon.interactions import safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 from phantycoon.cogs.maintenance import block_if_maintenance_active
-from phantycoon.progression import BOOSTS, add_quest_rewards_to_embed, boost_multiplier, expired_boost_notice, record_quest_event
+from phantycoon.progression import BOOSTS, add_prestige_ready_notice, add_quest_rewards_to_embed, boost_multiplier, expired_boost_notice, record_quest_event
 
 
 MINE_TIPS = (
@@ -36,6 +36,8 @@ MINE_TIPS = (
     "The Stone Pickaxe finds Coal and Copper; Iron becomes available with the Iron Pickaxe.",
     "The Golden Pickaxe unlocks Gold, while the Diamond Pickaxe is the first one that can find Diamonds.",
     "The Netherite Pickaxe has **5–7 rolls per mine**, the highest roll count of all pickaxes.",
+    "Quartz becomes available with the Iron Pickaxe; Iridium is exclusive to the Iridium Pickaxe.",
+    "The Iridium Pickaxe unlocks at prestige 5 and finds small amounts of rare Iridium ore.",
     "A mining roll chooses one available ore, so several rolls can combine into a larger stack of the same ore.",
     "Ore stays in your inventory until you sell it; there is no need to sell after every mining action.",
     "Check `/inventory` to see your stored ore and switch to a pickaxe you own.",
@@ -56,7 +58,7 @@ MINE_TIPS = (
     "If a captcha appears, solve it with `/verify code`. The code is case-sensitive; `/verify_regen` replaces an unreadable image.",
 )
 
-CHEST_EMOJI = "<a:Chest:1540427592652558386>"
+CHEST_EMOJI = "<a:chest:1549725559368454155>"
 MINE_CHEST_CHANCE = 0.012
 
 
@@ -184,6 +186,7 @@ class MineView(disnake.ui.View):
         quest_rewards = record_quest_event(inter.author.id, "ore_sales", total_sold)
         quest_rewards += record_quest_event(inter.author.id, "ore_sale_value", total_earned)
         add_quest_rewards_to_embed(embed, quest_rewards)
+        add_prestige_ready_notice(embed, inter.author.id)
         embed.set_thumbnail(url=inter.author.display_avatar.url)
         await safe_send(inter, embed=embed, view=MineView(inter.author.id))
 

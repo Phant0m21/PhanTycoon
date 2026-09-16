@@ -17,7 +17,8 @@ def load_shop():
                 "Iron Pickaxe": {"price": 6000, "emoji": "<:ironpickaxe:1522995651095298129>", "category": "pickaxes"},
                 "Golden Pickaxe": {"price": 25000, "emoji": "<:goldenpickaxe:1522995649828618292>", "category": "pickaxes"},
                 "Diamond Pickaxe": {"price": 100000, "emoji": "<:diamondpickaxe:1522995648511868928>", "category": "pickaxes"},
-                "Netherite Pickaxe": {"price": 400000, "emoji": "<:netheritepickaxe:1522995647073226843>", "category": "pickaxes"}
+                "Netherite Pickaxe": {"price": 400000, "emoji": "<:netheritepickaxe:1522995647073226843>", "category": "pickaxes"},
+                "Iridium Pickaxe": {"price": 2500000, "emoji": "<:iridiumpickaxe:1549726709119713350>", "category": "pickaxes", "prestige_required": 5}
             }
         }
         with open(SHOP_FILE, "w", encoding="utf-8") as f:

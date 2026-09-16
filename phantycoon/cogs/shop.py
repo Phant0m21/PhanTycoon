@@ -14,7 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
 from phantycoon.cogs.maintenance import block_if_maintenance_active
-from phantycoon.progression import add_quest_rewards_to_embed, record_quest_event
+from phantycoon.progression import add_prestige_ready_notice, add_quest_rewards_to_embed, record_quest_event
 
 # ==================== SHOP ====================
 
@@ -62,6 +62,8 @@ class ShopSelect(disnake.ui.Select):
                 color=EMBED_COLOR
             )
             for name, data in items.items():
+                if user_data.get("prestige_level", 0) < data.get("prestige_required", 0):
+                    continue
                 pickaxe_data = PICKAXES.get(name, {})
                 if not pickaxe_data:
                     continue
@@ -107,8 +109,11 @@ async def buy(
     found_item = None
     found_category = None
     
+    user_data = get_user_data(ctx.author.id)
     for category, items in shop.items():
         for item_name, item_data in items.items():
+            if user_data.get("prestige_level", 0) < item_data.get("prestige_required", 0):
+                continue
             if name.lower() in item_name.lower():
                 found_item = item_name
                 found_category = category
@@ -128,7 +133,6 @@ async def buy(
     item_data = shop[found_category][found_item]
     total_price = item_data["price"] * quantity
     
-    user_data = get_user_data(ctx.author.id)
     if user_data["wallet"] < total_price:
         embed = disnake.Embed(
             title="Error",
@@ -208,4 +212,5 @@ async def buy(
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
     add_quest_rewards_to_embed(embed, record_quest_event(ctx.author.id, "cash_spent", total_price))
+    add_prestige_ready_notice(embed, ctx.author.id)
     await safe_send(ctx, embed=embed)

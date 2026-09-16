@@ -21,7 +21,7 @@ PICKAXES = {
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 2,
-        "ores": ["Coal", "Copper", "Iron"],
+        "ores": ["Coal", "Copper", "Iron", "Quartz"],
         "default": False,
         "price": 6000, "rolls_min": 2, "rolls_max": 3
     },
@@ -30,7 +30,7 @@ PICKAXES = {
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 1,
         "amount_max": 3,
-        "ores": ["Coal", "Copper", "Iron", "Gold"],
+        "ores": ["Coal", "Copper", "Iron", "Gold", "Quartz"],
         "default": False,
         "price": 25000, "rolls_min": 3, "rolls_max": 4
     },
@@ -39,7 +39,7 @@ PICKAXES = {
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 2,
         "amount_max": 4,
-        "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond"],
+        "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond", "Quartz"],
         "default": False,
         "price": 100000, "rolls_min": 4, "rolls_max": 5
     },
@@ -48,9 +48,19 @@ PICKAXES = {
         "cooldown_add": PICKAXE_COOLDOWN_ADD,
         "amount_min": 3,
         "amount_max": 5,
-        "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond"],
+        "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond", "Quartz"],
         "default": False,
         "price": 400000, "rolls_min": 5, "rolls_max": 7
+    },
+    "Iridium Pickaxe": {
+        "emoji": "<:iridiumpickaxe:1549726709119713350>",
+        "cooldown_add": PICKAXE_COOLDOWN_ADD,
+        "amount_min": 4,
+        "amount_max": 7,
+        "rolls_min": 6, "rolls_max": 8,
+        "ores": ["Coal", "Copper", "Iron", "Gold", "Diamond", "Quartz", "Iridium"],
+        "default": False,
+        "price": 2500000
     }
 }
 
@@ -84,6 +94,18 @@ ORES = {
         "chance": 0.3,
         "price_min": 250,
         "price_max": 310
+    },
+    "Quartz": {
+        "emoji": "<:quartz:1549727337728446595>",
+        "chance": 1.2,
+        "price_min": 120,
+        "price_max": 155
+    },
+    "Iridium": {
+        "emoji": "<:iridiumore:1549727024958939178>",
+        "chance": 0.08,
+        "price_min": 1400,
+        "price_max": 1900
     }
 }
 

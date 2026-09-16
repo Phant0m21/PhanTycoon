@@ -10,6 +10,13 @@ from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.shop_data import load_shop
 
 
+def get_prestige_upgrade_cap(user_data, upgrade_id):
+    return min(
+        PRESTIGE_UPGRADES[upgrade_id]["max_level"],
+        1 + user_data.get("prestige_level", 0) // 5,
+    )
+
+
 def get_next_prestige_requirements(user_data):
     next_prestige = user_data.get("prestige_level", 0) + 1
     return {
@@ -80,7 +87,7 @@ def build_prestige_shop_embed(user):
 
     for upgrade_id, upgrade_data in PRESTIGE_UPGRADES.items():
         level = get_prestige_upgrade_level(user_data, upgrade_id)
-        max_level = upgrade_data["max_level"]
+        max_level = get_prestige_upgrade_cap(user_data, upgrade_id)
         embed.add_field(
             name=f"{upgrade_data['name']} ({level}/{max_level})",
             value=upgrade_data["description"],
@@ -106,12 +113,12 @@ class PrestigeShopView(disnake.ui.View):
         user_data = get_user_data(self.author_id)
         for upgrade_id, upgrade_data in PRESTIGE_UPGRADES.items():
             level = get_prestige_upgrade_level(user_data, upgrade_id)
-            max_level = upgrade_data["max_level"]
+            max_level = get_prestige_upgrade_cap(user_data, upgrade_id)
             self.add_item(
                 PrestigeUpgradeButton(
                     upgrade_id=upgrade_id,
                     label=f"{upgrade_data['name']} ({level}/{max_level})",
-                    disabled=False,
+                    disabled=level >= max_level,
                 )
             )
 

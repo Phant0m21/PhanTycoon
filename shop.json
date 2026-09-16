@@ -51,6 +51,12 @@
             "price": 400000,
             "emoji": "<:netheritepickaxe:1522995647073226843>",
             "category": "pickaxes"
+        },
+        "Iridium Pickaxe": {
+            "price": 2500000,
+            "emoji": "<:iridiumpickaxe:1549726709119713350>",
+            "category": "pickaxes",
+            "prestige_required": 5
         }
     }
 }
