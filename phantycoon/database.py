@@ -1728,3 +1728,242 @@ def get_mine_result(pickaxe_name, user_id=None):
             amount = max(1, round(amount * 1.5))
         results[selected_ore] = results.get(selected_ore, 0) + amount
     return results
+
+
+
+
+def transfer_user_progress(source_user_id, target_user_id):
+    source_user_id = str(source_user_id)
+    target_user_id = str(target_user_id)
+
+    if source_user_id == target_user_id:
+        return False, "same_user", None
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM users WHERE user_id = ?", (source_user_id,))
+        source = cursor.fetchone()
+
+        if not source:
+            return False, "source_not_found", None
+
+        cursor.execute("SELECT * FROM users WHERE user_id = ?", (target_user_id,))
+        target = cursor.fetchone()
+
+        if not target:
+            now = datetime.now(timezone.utc).isoformat()
+
+            cursor.execute(
+                """
+                INSERT INTO users (
+                    user_id,
+                    registered_at,
+                    current_pickaxe,
+                    time_management_level,
+                    business_optimization_level,
+                    miner_boost_level,
+                    prestige_level,
+                    prestige_manager_level,
+                    prestige_capital_level,
+                    prestige_double_ore_level,
+                    prestige_ore_value_level
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    target_user_id,
+                    now,
+                    "Stone Pickaxe",
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ),
+            )
+
+            cursor.execute(
+                "SELECT * FROM users WHERE user_id = ?",
+                (target_user_id,),
+            )
+
+            target = cursor.fetchone()
+
+        source_clan = cursor.execute(
+            "SELECT clan_id, rank FROM clan_members WHERE user_id = ?",
+            (source_user_id,),
+        ).fetchone()
+
+        target_clan = cursor.execute(
+            "SELECT clan_id, rank FROM clan_members WHERE user_id = ?",
+            (target_user_id,),
+        ).fetchone()
+
+        if target_clan:
+            return False, "target_in_clan", None
+
+        source_open_tickets = cursor.execute(
+            "SELECT COUNT(*) AS amount FROM tickets WHERE owner_id = ? AND status = 'open'",
+            (source_user_id,),
+        ).fetchone()["amount"]
+
+        if source_open_tickets:
+            return False, "source_has_ticket", source_open_tickets
+
+        transferable_tables = (
+            "businesses",
+            "inventory",
+            "clan_members",
+            "clan_weekly_xp",
+            "clan_invites",
+            "clan_bans",
+            "daily_quests",
+            "active_boosts",
+        )
+
+        target_progress = {
+            "businesses": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM businesses WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+            "inventory": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM inventory WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+            "daily_quests": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM daily_quests WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+            "active_boosts": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM active_boosts WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+            "clan_invites": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM clan_invites WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+            "clan_bans": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM clan_bans WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+            "clan_weekly_xp": cursor.execute(
+                "SELECT COUNT(*) AS amount FROM clan_weekly_xp WHERE user_id = ?",
+                (target_user_id,),
+            ).fetchone()["amount"],
+        }
+
+        if any(target_progress.values()):
+            return False, "target_has_progress", target_progress
+
+        source_values = dict(source)
+
+        source_values["user_id"] = target_user_id
+        source_values["is_captcha_active"] = 0
+        source_values["captcha_code"] = None
+        source_values["captcha_attempts"] = 0
+        source_values["captcha_regens"] = 0
+        source_values["captcha_banned_until"] = None
+        source_values["captcha_mine_actions"] = 0
+        source_values["captcha_mine_limit"] = CAPTCHA_ACTION_INTERVAL
+
+        columns = list(source.keys())
+        columns.remove("user_id")
+
+        set_clause = ", ".join(
+            f"{column} = ?" for column in columns
+        )
+
+        values = [
+            source_values[column]
+            for column in columns
+        ]
+
+        values.append(target_user_id)
+
+        cursor.execute(
+            f"UPDATE users SET {set_clause} WHERE user_id = ?",
+            values,
+        )
+
+        for table in transferable_tables:
+            cursor.execute(
+                f"DELETE FROM {table} WHERE user_id = ?",
+                (target_user_id,),
+            )
+
+        for table in transferable_tables:
+            cursor.execute(
+                f"SELECT * FROM {table} WHERE user_id = ?",
+                (source_user_id,),
+            )
+
+            rows = cursor.fetchall()
+
+            if not rows:
+                continue
+
+            table_columns = [
+                column["name"]
+                for column in cursor.execute(
+                    f"PRAGMA table_info({table})"
+                ).fetchall()
+            ]
+
+            placeholders = ", ".join("?" for _ in table_columns)
+            column_sql = ", ".join(table_columns)
+
+            for row in rows:
+                values = []
+
+                for column in table_columns:
+                    value = row[column]
+
+                    if column == "user_id":
+                        value = target_user_id
+
+                    values.append(value)
+
+                cursor.execute(
+                    f"""
+                    INSERT INTO {table} ({column_sql})
+                    VALUES ({placeholders})
+                    """,
+                    values,
+                )
+
+        for table in transferable_tables:
+            cursor.execute(
+                f"DELETE FROM {table} WHERE user_id = ?",
+                (source_user_id,),
+            )
+
+        cursor.execute(
+            "DELETE FROM users WHERE user_id = ?",
+            (source_user_id,),
+        )
+
+        conn.commit()
+
+        return True, "success", {
+            "source_user_id": source_user_id,
+            "target_user_id": target_user_id,
+            "wallet": source["wallet"],
+            "bank": source["bank"],
+            "lapis": source["lapis"],
+            "prestige_level": source["prestige_level"],
+            "current_pickaxe": source["current_pickaxe"],
+            "clan_id": source_clan["clan_id"] if source_clan else None,
+            "clan_rank": source_clan["rank"] if source_clan else None,
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()

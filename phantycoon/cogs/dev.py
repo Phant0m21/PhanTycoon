@@ -15,6 +15,7 @@ from phantycoon.database import (
     get_clan_by_name,
     get_maintenance_reason,
     get_user_data,
+    transfer_user_progress,
     set_maintenance_reason,
     update_stats,
     update_user_lapis,
@@ -248,6 +249,129 @@ async def dev_maintenance_status(ctx: disnake.ApplicationCommandInteraction):
         f"Maintenance is **{'enabled' if reason else 'disabled'}**." + (f"\nReason: {reason}" if reason else ""),
         ephemeral=True,
     )
+    
+    
+    
+    
+@dev_settings.sub_command(
+    name="transfer_progress",
+    description="Transfer all game progress from one user to another",
+)
+async def dev_transfer_progress(
+    ctx: disnake.ApplicationCommandInteraction,
+    source: disnake.User = commands.Param(
+        description="User whose progress will be transferred",
+    ),
+    target: disnake.User = commands.Param(
+        description="User who will receive the progress",
+    ),
+):
+    if not await require_dev(ctx):
+        return
+
+    if source.id == target.id:
+        await safe_embed(
+            ctx,
+            "Transfer failed",
+            "Source and target users must be different.",
+            ephemeral=True,
+        )
+        return
+
+    await safe_defer(ctx, ephemeral=True)
+
+    try:
+        success, status, details = transfer_user_progress(
+            source.id,
+            target.id,
+        )
+
+    except Exception as exc:
+        await safe_embed(
+            ctx,
+            "Transfer failed",
+            f"An unexpected database error occurred:\n`{exc}`",
+            ephemeral=True,
+        )
+        return
+
+    if not success:
+        messages = {
+            "same_user": "Source and target users must be different.",
+            "source_not_found": "The source user does not have a registered PhanTycoon account.",
+            "target_in_clan": "The target user is already a member of a clan.",
+            "source_has_ticket": (
+                f"The source user has {details} open ticket(s). "
+                "Close them before transferring the account."
+            ),
+            "target_has_progress": (
+                "The target user already has game progress. "
+                "The transfer was cancelled to prevent overwriting it."
+            ),
+        }
+
+        await safe_embed(
+            ctx,
+            "Transfer cancelled",
+            messages.get(status, "The transfer could not be completed."),
+            ephemeral=True,
+        )
+        return
+
+    clan_text = "No clan"
+
+    if details["clan_id"] is not None:
+        clan_text = (
+            f"Clan ID: `{details['clan_id']}`\n"
+            f"Rank: **{details['clan_rank']}**"
+        )
+
+    embed = disnake.Embed(
+        title="Progress transferred",
+        description=(
+            f"All game progress has been transferred from "
+            f"{source.mention} to {target.mention}."
+        ),
+        color=EMBED_COLOR,
+    )
+
+    embed.add_field(
+        name="Economy",
+        value=(
+            f"Wallet: **{details['wallet']:,}{CURRENCY}**\n"
+            f"Bank: **{details['bank']:,}{CURRENCY}**\n"
+            f"Lapis: **{details['lapis']:,}**"
+        ),
+        inline=False,
+    )
+
+    embed.add_field(
+        name="Progress",
+        value=(
+            f"Prestige: **{details['prestige_level']}**\n"
+            f"Pickaxe: **{details['current_pickaxe']}**"
+        ),
+        inline=False,
+    )
+
+    embed.add_field(
+        name="Clan",
+        value=clan_text,
+        inline=False,
+    )
+
+    embed.set_footer(
+        text="The source account and its game progress were removed after the transfer."
+    )
+
+    await safe_send(
+        ctx,
+        embed=embed,
+        ephemeral=True,
+    )    
+    
+    
+    
 
 
 @dev_settings.sub_command(name="restart", description="Restart the bot")
