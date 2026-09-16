@@ -179,7 +179,6 @@ async def inventory_button_handler(inter: disnake.MessageInteraction):
     if await block_if_maintenance_active(inter):
         return
     
-    await safe_defer(inter, with_message=False)
     action, item_name = inter.data.custom_id.split("_", 1)
     
     inventory = get_user_inventory(inter.author.id)
