@@ -9,7 +9,7 @@ from phantycoon.cogs.shop import shop
 from phantycoon.data import LAPIS_EMOJI
 from phantycoon.database import get_active_boosts, get_user_data, purchase_boost
 from phantycoon.interactions import safe_edit, safe_embed, safe_send
-from phantycoon.progression import BOOSTS, QUEST_DEFINITIONS, SPECIAL_DAILY_SLOT, ensure_daily_quests, next_quest_reset
+from phantycoon.progression import BOOSTS, QUEST_DEFINITIONS, SPECIAL_DAILY_SLOT, ensure_daily_quests, is_boost_available, next_quest_reset
 
 
 def format_duration(seconds):
@@ -85,7 +85,11 @@ class BoostShopView(disnake.ui.View):
         super().__init__(timeout=None)
         self.author_id = author_id
         for boost_id, boost in BOOSTS.items():
-            self.add_item(BoostButton(boost_id, f"{boost['name']} — {boost['cost']}"))
+            if (
+                not boost.get("required_upgrade")
+                or (author_id is not None and is_boost_available(author_id, boost_id))
+            ):
+                self.add_item(BoostButton(boost_id, f"{boost['name']} — {boost['cost']}"))
 
 
 class BoostButton(disnake.ui.Button):
@@ -100,8 +104,14 @@ class BoostButton(disnake.ui.Button):
             await safe_embed(inter, "Error", "This is not your boost shop.", ephemeral=True)
             return
         boost = BOOSTS[self.boost_id]
+        if not is_boost_available(inter.author.id, self.boost_id):
+            await safe_embed(inter, "Boost unavailable", "Max out **Time Management** before buying Work Rush.", ephemeral=True)
+            return
         success, balance, expires_at = purchase_boost(
-            inter.author.id, self.boost_id, boost["cost"], boost["minutes"] * 60
+            inter.author.id,
+            self.boost_id,
+            boost["cost"],
+            boost.get("duration_seconds", boost["minutes"] * 60),
         )
         if not success:
             if expires_at:
@@ -127,6 +137,8 @@ def build_boost_shop_embed(user_id, notice=None):
         color=EMBED_COLOR,
     )
     for boost_id, boost in BOOSTS.items():
+        if not is_boost_available(user_id, boost_id):
+            continue
         active_text = f"\nActive until <t:{int(datetime.fromisoformat(active[boost_id]).timestamp())}:R>" if boost_id in active else ""
         embed.add_field(
             name=f"{boost['name']} — {boost['cost']} {LAPIS_EMOJI}",

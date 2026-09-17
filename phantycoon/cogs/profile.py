@@ -120,6 +120,8 @@ def build_buffs_embed(target):
     work_cooldown_minutes = max(0, 120 - work_reduction)
     work_hours, work_minutes = divmod(work_cooldown_minutes, 60)
     work_cooldown = f"{work_hours}h {work_minutes}m" if work_hours else f"{work_minutes}m"
+    if "work_rush" in active_boosts:
+        work_cooldown = "5s"
 
     description = (
         f"Work income: **{work_income:.2f}x**\n"

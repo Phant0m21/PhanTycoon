@@ -1667,8 +1667,11 @@ def can_work(user_id):
         for i in range(time_management_level):
             work_reduction_minutes += levels[i]["work_reduction_minutes"]
     
-    base_cooldown = timedelta(hours=2)
-    reduced_cooldown = base_cooldown - timedelta(minutes=work_reduction_minutes)
+    if "work_rush" in get_active_boosts(user_id):
+        reduced_cooldown = timedelta(seconds=5)
+    else:
+        base_cooldown = timedelta(hours=2)
+        reduced_cooldown = base_cooldown - timedelta(minutes=work_reduction_minutes)
     next_work = last_work + reduced_cooldown
     
     if datetime.now(timezone.utc) >= next_work:

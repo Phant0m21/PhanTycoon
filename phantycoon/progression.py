@@ -2,7 +2,7 @@ import random
 from datetime import datetime, time, timedelta, timezone
 
 from phantycoon.config import CURRENCY
-from phantycoon.data import LAPIS_EMOJI, PICKAXES
+from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
 from phantycoon.database import (
     advance_daily_quests, consume_expired_boosts, get_active_boosts, get_daily_quests, get_user_businesses,
     get_user_clan, get_user_data, get_user_inventory, mark_prestige_ready_notified, replace_daily_quests,
@@ -50,7 +50,27 @@ BOOSTS = {
     "mining_frenzy": {"name": "Mining Frenzy", "cost": 4, "minutes": 20, "effect": "+50% ore quantity", "value": 1.50},
     "mine_haste": {"name": "Mine Haste", "cost": 5, "minutes": 15, "effect": "−35% mining cooldown", "value": 0.65},
     "prospector": {"name": "Prospector", "cost": 5, "minutes": 20, "effect": "+40% ore sale value", "value": 1.40},
+    "work_rush": {
+        "name": "Work Rush",
+        "cost": 30,
+        "minutes": 4,
+        "effect": "Sets /work cooldown to 5 seconds",
+        "work_cooldown_seconds": 5,
+        "required_upgrade": "time_management",
+        "required_level": UPGRADES["time_management"]["max_level"],
+    },
 }
+
+
+def is_boost_available(user_id, boost_id):
+    boost = BOOSTS.get(boost_id)
+    if not boost:
+        return False
+    required_upgrade = boost.get("required_upgrade")
+    if not required_upgrade:
+        return True
+    user_data = get_user_data(user_id)
+    return user_data.get(f"{required_upgrade}_level", 0) >= boost["required_level"]
 
 
 def expired_boost_notice(user_id):
