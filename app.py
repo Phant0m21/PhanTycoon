@@ -24,6 +24,7 @@ def load_extensions() -> None:
     import phantycoon.cogs.clan
     import phantycoon.cogs.interface
     import phantycoon.events
+    import phantycoon.seasonal_events
 
 
 def main() -> None:

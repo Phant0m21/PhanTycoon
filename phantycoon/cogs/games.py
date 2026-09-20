@@ -14,6 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_send
 from phantycoon.progression import add_prestige_ready_notice, add_quest_rewards_to_embed, record_quest_event
+from phantycoon.seasonal_events import event_multiplier
 
 # ==================== COINFLIP ====================
 
@@ -41,7 +42,7 @@ async def coinflip(
     result = random.choice(["Heads", "Tails"])
     
     if result == choice:
-        win_amount = bet * 2
+        win_amount = int(bet * 2 * event_multiplier("game_winnings"))
         user_data = get_user_data(user_id)
         update_user_wallet(user_id, user_data["wallet"] + win_amount)
         update_stats(user_id, total_earned=win_amount, games_played=1)

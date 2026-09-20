@@ -14,6 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.progression import add_prestige_ready_notice, add_quest_rewards_to_embed, expired_boost_notice, record_quest_event
+from phantycoon.seasonal_events import event_multiplier
 
 # ==================== COLLECT ====================
 
@@ -70,6 +71,7 @@ async def collect(ctx: disnake.ApplicationCommandInteraction):
         prestige_bonus = int(total_income * (prestige_income_multiplier - 1))
         total_income += prestige_bonus
         collected_businesses.append(f"{PRESTIGE_TOKEN_EMOJI} Prestige bonus +{prestige_bonus} {CURRENCY}")
+    total_income = int(total_income * event_multiplier("collect_income"))
 
 
     await safe_defer(ctx)

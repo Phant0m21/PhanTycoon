@@ -17,6 +17,7 @@ from phantycoon.interactions import safe_embed, safe_send
 from phantycoon.cogs.captcha import block_if_captcha_active, generate_captcha_code, send_captcha
 from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.progression import BOOSTS, add_prestige_ready_notice, add_quest_rewards_to_embed, boost_multiplier, expired_boost_notice, record_quest_event
+from phantycoon.seasonal_events import apply_ore_multipliers, event_multiplier
 
 
 MINE_TIPS = (
@@ -76,7 +77,7 @@ def roll_mine_chest(user_id, user_data):
         add_user_lapis(user_id, amount)
         return {"type": "lapis", "amount": amount}
 
-    amount = random.randint(int(140 * scale), int(520 * scale))
+    amount = int(random.randint(int(140 * scale), int(520 * scale)) * event_multiplier("mine_cash"))
     update_user_wallet(user_id, user_data["wallet"] + amount)
     update_stats(user_id, total_earned=amount)
     return {"type": "cash", "amount": amount}
@@ -116,7 +117,7 @@ async def run_mine(inter):
 
     user_data = get_user_data(inter.author.id)
     pickaxe_name = user_data.get("current_pickaxe", "Stone Pickaxe")
-    results = get_mine_result(pickaxe_name, inter.author.id)
+    results = apply_ore_multipliers(get_mine_result(pickaxe_name, inter.author.id))
     inventory = get_user_inventory(inter.author.id)
     for ore_name, amount in results.items():
         inventory[ore_name] = inventory.get(ore_name, 0) + amount
@@ -170,7 +171,7 @@ class MineView(disnake.ui.View):
             if ore_name not in ORES or quantity <= 0:
                 continue
             ore = ORES[ore_name]
-            price = int(random.randint(ore["price_min"], ore["price_max"]) * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier * boost_multiplier(inter.author.id, "prospector"))
+            price = int(random.randint(ore["price_min"], ore["price_max"]) * (1 + ore_bonus / 100) * prestige_multiplier * clan_multiplier * boost_multiplier(inter.author.id, "prospector") * event_multiplier("ore_sale"))
             earned = price * quantity
             total_earned += earned
             total_sold += quantity

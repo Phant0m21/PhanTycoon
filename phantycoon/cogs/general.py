@@ -14,6 +14,7 @@ from phantycoon.database import *
 from phantycoon.shop_data import load_shop, save_shop
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 from phantycoon.progression import add_prestige_ready_notice, add_quest_rewards_to_embed, expired_boost_notice, record_quest_event
+from phantycoon.seasonal_events import event_multiplier
 
 # ==================== COMMANDS ====================
 
@@ -41,6 +42,7 @@ async def work(ctx: disnake.ApplicationCommandInteraction):
     prestige_income_multiplier = get_prestige_income_multiplier(user_data)
     if prestige_income_multiplier > 1:
         earnings = int(earnings * prestige_income_multiplier)
+    earnings = int(earnings * event_multiplier("work_income"))
 
     new_wallet = user_data["wallet"] + earnings
     update_user_wallet(ctx.author.id, new_wallet)

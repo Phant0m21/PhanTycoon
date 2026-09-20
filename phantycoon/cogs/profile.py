@@ -10,6 +10,7 @@ from phantycoon.database import get_active_boosts, get_mine_cooldown, get_user_b
 from phantycoon.progression import BOOSTS
 from phantycoon.cogs.maintenance import block_if_maintenance_active
 from phantycoon.interactions import safe_defer, safe_edit, safe_embed, safe_send
+from phantycoon.seasonal_events import format_event
 
 
 def get_clan_value(user_id):
@@ -44,6 +45,7 @@ def build_profile_embed(target):
         value=f"{user_data['wallet']} {CURRENCY}\n{user_data['lapis']} {LAPIS_EMOJI}",
         inline=False,
     )
+    embed.add_field(name="Current event", value=format_event(), inline=False)
 
     current_pickaxe = user_data.get("current_pickaxe", "Stone Pickaxe")
     pickaxe_emoji = PICKAXES.get(current_pickaxe, {}).get("emoji", "")

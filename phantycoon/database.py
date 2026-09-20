@@ -1,3 +1,4 @@
+import json
 import random
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -1672,6 +1673,7 @@ def can_work(user_id):
     else:
         base_cooldown = timedelta(hours=2)
         reduced_cooldown = base_cooldown - timedelta(minutes=work_reduction_minutes)
+        reduced_cooldown *= _seasonal_cooldown_multiplier("work")
     next_work = last_work + reduced_cooldown
     
     if datetime.now(timezone.utc) >= next_work:
@@ -1686,7 +1688,7 @@ def can_collect(user_id):
     last_collect = datetime.fromisoformat(last_collect_str)
     if last_collect.tzinfo is None:
         last_collect = last_collect.replace(tzinfo=timezone.utc)
-    next_collect = last_collect + timedelta(hours=6)
+    next_collect = last_collect + timedelta(hours=6) * _seasonal_cooldown_multiplier("collect")
     if datetime.now(timezone.utc) >= next_collect:
         return True, None
     return False, next_collect
@@ -1717,7 +1719,29 @@ def get_mine_cooldown(user_id, data=None):
     final_cooldown = BASE_MINE_COOLDOWN + pickaxe_delay - mine_reduction
     if "mine_haste" in get_active_boosts(user_id):
         final_cooldown *= 0.65
+    final_cooldown *= _seasonal_cooldown_multiplier("mine")
     return max(MIN_MINE_COOLDOWN, final_cooldown)
+
+
+def _seasonal_cooldown_multiplier(action):
+    raw_state = get_bot_state("current_seasonal_event")
+    if not raw_state:
+        return 1.0
+    try:
+        state = json.loads(raw_state)
+        expires_at = datetime.fromisoformat(state["expires_at"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return 1.0
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) >= expires_at:
+        return 1.0
+    multipliers = {
+        "mine": {"swift_pickaxes": 0.70, "production_sprint": 0.70},
+        "work": {"quick_shift": 0.65, "worker_festival": 0.65},
+        "collect": {"fast_collections": 0.65, "business_festival": 0.65},
+    }
+    return multipliers.get(action, {}).get(state.get("event_id"), 1.0)
 
 def get_global_top():
     conn = get_db()
