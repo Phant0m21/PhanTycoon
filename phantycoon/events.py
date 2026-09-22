@@ -16,8 +16,8 @@ from phantycoon.interactions import safe_send
 
 # ==================== EVENTS ====================
 
-HONEYPOT_CHANNEL_ID = 1535570511730311178
-HONEYPOT_BAN_REASON = "Violation of protocol: interaction with an unroutable system node."
+HONEYPOT_CHANNEL_ID = 1551300709893546217
+HONEYPOT_BAN_REASON = "Banned by Honeypot system: suspicious activity detected. Your account may have been compromised. If you have secured your account, contact <@1548658707024576564> to appeal"
 
 
 @bot.event

@@ -10,8 +10,8 @@ from phantycoon.config import EMBED_COLOR
 from phantycoon.database import get_bot_state, set_bot_state
 
 EVENT_STATE_KEY = "current_seasonal_event"
-EVENT_CHANNEL_ID = 1551217287879725186
-EVENT_ROLE_ID = 1551217585373323366
+EVENT_CHANNEL_ID = 1551300709893546222
+EVENT_ROLE_ID = 1551300709113139271
 EVENT_DURATION = timedelta(hours=3)
 
 
@@ -157,7 +157,7 @@ async def rotate_event_if_needed(force=False):
         )
         await channel.send(embed=disnake.Embed(
             title=f"New event: {event['title']}",
-            description=f"{event['description']}\n\nDuration: **1 hour**",
+            description=f"{event['description']}\n\nDuration: **3 hours**",
             color=EMBED_COLOR,
         ))
     except disnake.DiscordException as error:
@@ -165,7 +165,7 @@ async def rotate_event_if_needed(force=False):
     return event
 
 
-@tasks.loop(hours=1)
+@tasks.loop(hours=3)
 async def event_rotation():
     await rotate_event_if_needed(force=True)
 
