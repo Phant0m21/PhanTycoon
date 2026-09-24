@@ -6,7 +6,6 @@ from disnake.ext import commands
 
 from phantycoon.bot import bot
 from phantycoon.config import CURRENCY, DEV_ID, EMBED_COLOR
-from phantycoon.data import LAPIS_EMOJI
 from phantycoon.database import (
     admin_update_clan,
     clear_maintenance_reason,
@@ -14,12 +13,8 @@ from phantycoon.database import (
     get_clan_by_id,
     get_clan_by_name,
     get_maintenance_reason,
-    get_user_data,
     transfer_user_progress,
     set_maintenance_reason,
-    update_stats,
-    update_user_lapis,
-    update_user_wallet,
 )
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 
@@ -70,8 +65,6 @@ async def dev_settings_panel(ctx: disnake.ApplicationCommandInteraction):
     embed = disnake.Embed(
         title="Developer Settings",
         description=(
-            "`/zzdev settings money_add` `/money_remove` `/money_set`\n"
-            "`/zzdev settings lapis_add` `/lapis_remove` `/lapis_set`\n"
             "`/zzdev settings clan_delete` `/clan_edit`\n"
             "`/zzdev settings maintenance_enable` `/maintenance_disable` `/maintenance_status`"
         ),
@@ -83,88 +76,6 @@ async def dev_settings_panel(ctx: disnake.ApplicationCommandInteraction):
         inline=False,
     )
     await safe_send(ctx, embed=embed, ephemeral=True)
-
-
-@dev_settings.sub_command(name="money_add", description="Add cash to a user")
-async def dev_money_add(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(description="Target user"),
-    amount: int = commands.Param(gt=0, description="Cash amount"),
-):
-    if not await require_dev(ctx):
-        return
-    await safe_defer(ctx, ephemeral=True)
-    data = get_user_data(user.id)
-    new_wallet = data["wallet"] + amount
-    update_user_wallet(user.id, new_wallet)
-    update_stats(user.id, total_earned=amount)
-    await safe_send(ctx, f"Added **{amount:,}{CURRENCY}** to {user.mention}. New wallet: **{new_wallet:,}{CURRENCY}**", ephemeral=True)
-
-
-@dev_settings.sub_command(name="money_remove", description="Remove cash from a user")
-async def dev_money_remove(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(description="Target user"),
-    amount: int = commands.Param(gt=0, description="Cash amount"),
-):
-    if not await require_dev(ctx):
-        return
-    data = get_user_data(user.id)
-    new_wallet = max(0, data["wallet"] - amount)
-    update_user_wallet(user.id, new_wallet)
-    await safe_send(ctx, f"Removed cash from {user.mention}. New wallet: **{new_wallet:,}{CURRENCY}**", ephemeral=True)
-
-
-@dev_settings.sub_command(name="money_set", description="Set a user's cash")
-async def dev_money_set(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(description="Target user"),
-    amount: int = commands.Param(ge=0, description="New wallet amount"),
-):
-    if not await require_dev(ctx):
-        return
-    update_user_wallet(user.id, amount)
-    await safe_send(ctx, f"Set {user.mention}'s wallet to **{amount:,}{CURRENCY}**.", ephemeral=True)
-
-
-@dev_settings.sub_command(name="lapis_add", description="Add Lapis Lazuli to a user")
-async def dev_lapis_add(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(description="Target user"),
-    amount: int = commands.Param(gt=0, description="Lapis amount"),
-):
-    if not await require_dev(ctx):
-        return
-    data = get_user_data(user.id)
-    new_lapis = data["lapis"] + amount
-    update_user_lapis(user.id, new_lapis)
-    await safe_send(ctx, f"Added **{amount:,} {LAPIS_EMOJI}** to {user.mention}. New lapis: **{new_lapis:,}**", ephemeral=True)
-
-
-@dev_settings.sub_command(name="lapis_remove", description="Remove Lapis Lazuli from a user")
-async def dev_lapis_remove(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(description="Target user"),
-    amount: int = commands.Param(gt=0, description="Lapis amount"),
-):
-    if not await require_dev(ctx):
-        return
-    data = get_user_data(user.id)
-    new_lapis = max(0, data["lapis"] - amount)
-    update_user_lapis(user.id, new_lapis)
-    await safe_send(ctx, f"Removed lapis from {user.mention}. New lapis: **{new_lapis:,} {LAPIS_EMOJI}**", ephemeral=True)
-
-
-@dev_settings.sub_command(name="lapis_set", description="Set a user's Lapis Lazuli")
-async def dev_lapis_set(
-    ctx: disnake.ApplicationCommandInteraction,
-    user: disnake.User = commands.Param(description="Target user"),
-    amount: int = commands.Param(ge=0, description="New lapis amount"),
-):
-    if not await require_dev(ctx):
-        return
-    update_user_lapis(user.id, amount)
-    await safe_send(ctx, f"Set {user.mention}'s lapis to **{amount:,} {LAPIS_EMOJI}**.", ephemeral=True)
 
 
 @dev_settings.sub_command(name="clan_delete", description="Delete any clan by ID or name")

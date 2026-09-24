@@ -33,7 +33,6 @@ PRESTIGE_UPGRADE_COLUMNS = {
     "diamond_rush": "prestige_ore_value_level",
 }
 
-CLAN_MAX_LEVEL = 150
 CLAN_CREATE_COST = 5000
 CLAN_MAX_MEMBERS = 10
 CLAN_WORK_XP = 25
@@ -254,6 +253,15 @@ def init_db():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS quest_streaks (
+            user_id TEXT PRIMARY KEY,
+            period_start TEXT NOT NULL,
+            streak INTEGER NOT NULL DEFAULT 0,
+            tiers_completed INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS active_boosts (
             user_id TEXT NOT NULL,
             boost_id TEXT NOT NULL,
@@ -445,6 +453,57 @@ def replace_daily_quests(user_id, quests):
         )
     conn.commit()
     conn.close()
+
+def _quest_period_start():
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+def _rollover_quest_streak(cursor, user_id):
+    period_start = _quest_period_start()
+    cursor.execute("SELECT * FROM quest_streaks WHERE user_id = ?", (str(user_id),))
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute(
+            "INSERT INTO quest_streaks (user_id, period_start) VALUES (?, ?)",
+            (str(user_id), period_start),
+        )
+        return {"streak": 0, "tiers_completed": 0}
+    if row["period_start"] != period_start:
+        previous_period = datetime.fromisoformat(row["period_start"])
+        current_period = datetime.fromisoformat(period_start)
+        consecutive_day = (current_period - previous_period).days == 1
+        streak = row["streak"] if consecutive_day and row["tiers_completed"] >= 2 else 0
+        cursor.execute(
+            "UPDATE quest_streaks SET period_start = ?, streak = ?, tiers_completed = 0 WHERE user_id = ?",
+            (period_start, streak, str(user_id)),
+        )
+        return {"streak": streak, "tiers_completed": 0}
+    return dict(row)
+
+def get_quest_streak(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    streak = _rollover_quest_streak(cursor, user_id)
+    conn.commit()
+    conn.close()
+    return streak
+
+def record_quest_tier_completions(user_id, completed_tiers):
+    if completed_tiers <= 0:
+        return get_quest_streak(user_id)
+    conn = get_db()
+    cursor = conn.cursor()
+    streak = _rollover_quest_streak(cursor, user_id)
+    old_tiers = streak["tiers_completed"]
+    new_tiers = old_tiers + completed_tiers
+    new_streak = streak["streak"] + (1 if old_tiers < 2 <= new_tiers else 0)
+    cursor.execute(
+        "UPDATE quest_streaks SET tiers_completed = ?, streak = ? WHERE user_id = ?",
+        (new_tiers, new_streak, str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+    return {"streak": new_streak, "tiers_completed": new_tiers}
 
 def advance_daily_quests(user_id, event_key, amount):
     if amount <= 0:
@@ -1084,15 +1143,13 @@ def get_current_week_start():
     return start.replace(hour=0, minute=0, second=0, microsecond=0).date().isoformat()
 
 def get_clan_next_level_xp(level):
-    if level >= CLAN_MAX_LEVEL:
-        return None
     return level * 1000
 
 def get_clan_ore_bonus_multiplier(user_id):
     clan = get_user_clan(user_id)
     if not clan:
         return 1
-    return 1 + clan["level"] * 0.005
+    return 1 + clan["level"] * 0.0005
 
 def get_user_clan(user_id):
     conn = get_db()
@@ -1532,16 +1589,13 @@ def grant_clan_xp(user_id, xp):
     current_xp = clan["xp"] + xp
     total_xp = clan["total_xp"] + xp
     leveled = 0
-    while level < CLAN_MAX_LEVEL:
+    while True:
         needed = get_clan_next_level_xp(level)
         if current_xp < needed:
             break
         current_xp -= needed
         level += 1
         leveled += 1
-    if level >= CLAN_MAX_LEVEL:
-        level = CLAN_MAX_LEVEL
-        current_xp = 0
 
     cursor.execute(
         "UPDATE clans SET level = ?, xp = ?, total_xp = ? WHERE clan_id = ?",

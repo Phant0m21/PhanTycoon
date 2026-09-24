@@ -9,6 +9,7 @@ from phantycoon.cogs.shop import shop
 from phantycoon.data import LAPIS_EMOJI
 from phantycoon.database import get_active_boosts, get_user_data, purchase_boost
 from phantycoon.interactions import safe_edit, safe_embed, safe_send
+from phantycoon.database import get_quest_streak
 from phantycoon.progression import BOOSTS, QUEST_DEFINITIONS, SPECIAL_DAILY_SLOT, ensure_daily_quests, is_boost_available, next_quest_reset
 
 
@@ -55,6 +56,7 @@ def quest_line(row):
 def build_quests_embed(user_id):
     rows = ensure_daily_quests(user_id)
     data = get_user_data(user_id)
+    streak = get_quest_streak(user_id)
     reset_at = next_quest_reset()
     reset_in = format_duration((reset_at - datetime.now(timezone.utc)).total_seconds())
     embed = disnake.Embed(
@@ -66,7 +68,8 @@ def build_quests_embed(user_id):
     daily_blocks = [quest_line(row) for row in daily_rows]
     special_block = quest_line(special_rows[0]) if special_rows else "No special quest today."
     embed.description = (
-        "Daily contracts reset together at **00:00 UTC**. Rewards are random and revealed when a tier is completed.\n\n"
+        "Daily contracts reset together at **00:00 UTC**. Complete any **2 tiers** each day to keep your streak.\n"
+        f"Quest streak: **{streak['streak']} day(s)** · Today: **{streak['tiers_completed']}/2 tiers**\n\n"
         + "\n\n".join(daily_blocks)
         + "\n\n**High-Value Contract**\n"
         + special_block

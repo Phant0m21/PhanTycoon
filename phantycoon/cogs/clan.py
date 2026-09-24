@@ -11,7 +11,7 @@ from phantycoon.interactions import safe_edit, safe_embed, safe_send
 
 
 def format_clan_bonus(level):
-    return f"{level * 0.5:.1f}%"
+    return f"{level * 0.05:.2f}%"
 
 
 def normalize_clan_tag(tag):
@@ -31,7 +31,7 @@ async def build_clan_embed(user_id, mode="overview"):
         return disnake.Embed(title="Clan", description="You are not in a clan.", color=EMBED_COLOR)
     members = get_clan_members(clan_data["clan_id"])
     needed = get_clan_next_level_xp(clan_data["level"])
-    xp_text = "MAX" if needed is None else f"{clan_data['xp']:,}/{needed:,}"
+    xp_text = f"{clan_data['xp']:,}/{needed:,}"
     embed = disnake.Embed(title=f"[{clan_data['tag']}] {clan_data['name']}", color=EMBED_COLOR)
     if mode == "overview":
         access = "Public" if clan_data["access"] == "public" else "Invite only"
@@ -50,7 +50,7 @@ async def build_clan_embed(user_id, mode="overview"):
         embed.description = (
             f"*{description}*\n"
             f"Access: **{access}**\n\n"
-            f"Clan Level: **{clan_data['level']}/{CLAN_MAX_LEVEL}** · **{xp_text} XP** to next level\n"
+            f"Clan Level: **{clan_data['level']}** · **{xp_text} XP** to next level\n"
             f"Ore sell price bonus: **+{format_clan_bonus(clan_data['level'])}**\n"
             f"Members: **{len(members)}/{CLAN_MAX_MEMBERS}**\n\n"
             + "\n".join(member_lines)

@@ -4,7 +4,8 @@ from datetime import datetime, time, timedelta, timezone
 from phantycoon.config import CURRENCY
 from phantycoon.data import LAPIS_EMOJI, PICKAXES, UPGRADES
 from phantycoon.database import (
-    advance_daily_quests, consume_expired_boosts, get_active_boosts, get_daily_quests, get_user_businesses,
+    advance_daily_quests, consume_expired_boosts, get_active_boosts, get_daily_quests,
+    get_user_businesses, record_quest_tier_completions,
     get_user_clan, get_user_data, get_user_inventory, mark_prestige_ready_notified, replace_daily_quests,
 )
 from phantycoon.shop_data import load_shop
@@ -253,6 +254,7 @@ def record_quest_event(user_id, event_key, amount=1):
         return []
     ensure_daily_quests(user_id)
     rewards = advance_daily_quests(user_id, event_key, amount)
+    record_quest_tier_completions(user_id, len(rewards))
     for reward in rewards:
         reward["name"] = QUEST_DEFINITIONS[reward["quest_key"]]["name"]
     return rewards
