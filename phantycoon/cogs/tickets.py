@@ -8,7 +8,7 @@ import disnake
 from phantycoon.bot import bot
 from phantycoon.config import EMBED_COLOR
 from phantycoon.database import (
-    close_ticket_record, count_open_tickets, create_ticket_record, get_open_ticket,
+    close_ticket_record, count_open_tickets, create_ticket_record, get_open_ticket, get_user_emblem_color,
 )
 from phantycoon.interactions import safe_defer, safe_embed, safe_send
 
@@ -175,6 +175,7 @@ class TicketFormModal(disnake.ui.Modal):
                 color=EMBED_COLOR,
                 timestamp=datetime.now(timezone.utc),
             )
+            embed.color = get_user_emblem_color(inter.author.id)
             answers = inter.text_values
             for key, label, _, _ in config["questions"]:
                 embed.add_field(name=label, value=answers.get(key) or "Not provided", inline=False)

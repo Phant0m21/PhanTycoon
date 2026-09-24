@@ -8,7 +8,7 @@ from phantycoon.cogs.dev import dev
 from phantycoon.config import DEV_ID, EMBED_COLOR
 from phantycoon.database import (
     clear_all_captcha_state, create_bot_ban, get_bot_ban,
-    get_captcha_status, is_captcha_banned, list_active_bans, remove_bot_ban,
+    get_captcha_status, get_user_emblem_color, is_captcha_banned, list_active_bans, remove_bot_ban,
 )
 from phantycoon.interactions import safe_embed, safe_send
 
@@ -97,6 +97,7 @@ async def ban_user(
             color=EMBED_COLOR,
         )
         try:
+            embed.color = get_user_emblem_color(user.id)
             await user.send(embed=embed)
             dm_delivered = True
         except disnake.DiscordException:
@@ -174,6 +175,7 @@ async def unban_user(
             color=EMBED_COLOR,
         )
         try:
+            embed.color = get_user_emblem_color(user.id)
             await user.send(embed=embed)
             dm_delivered = True
         except disnake.DiscordException:

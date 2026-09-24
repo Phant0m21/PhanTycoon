@@ -18,6 +18,7 @@ from phantycoon.database import (
     clear_captcha,
     get_bot_ban,
     get_captcha_status,
+    get_user_emblem_color,
     increment_captcha_attempts,
     is_captcha_banned,
     regenerate_captcha,
@@ -94,6 +95,7 @@ async def send_failed_captcha_ban(inter, banned_until):
     embed = disnake.Embed(title="Captcha Failed", description=description, color=EMBED_COLOR)
 
     try:
+        embed.color = get_user_emblem_color(inter.author.id)
         await inter.author.send(embed=embed)
         await safe_send(inter, "Captcha failed. I sent the ban details to your DMs.", ephemeral=True)
     except disnake.HTTPException:

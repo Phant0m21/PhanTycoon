@@ -2,6 +2,9 @@ import logging
 
 import disnake
 
+from phantycoon.config import EMBED_COLOR
+from phantycoon.database import get_user_emblem_color
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +29,10 @@ async def safe_defer(inter, *, ephemeral: bool = False, with_message: bool = Tru
 
 
 async def safe_send(inter, *args, **kwargs):
+    embed = kwargs.get("embed")
+    author = getattr(inter, "author", None)
+    if embed is not None and author is not None and getattr(embed.color, "value", None) == EMBED_COLOR:
+        embed.color = get_user_emblem_color(author.id)
     try:
         if inter.response.is_done():
             return await inter.followup.send(*args, **kwargs)
@@ -50,12 +57,16 @@ async def safe_embed(inter, title: str, description: str, *, ephemeral: bool = F
     embed = disnake.Embed(
         title=title,
         description=description,
-        color=kwargs.pop("color", 0xFFFFFF),
+        color=kwargs.pop("color", EMBED_COLOR),
     )
     return await safe_send(inter, embed=embed, ephemeral=ephemeral, **kwargs)
 
 
 async def safe_edit(inter, *args, **kwargs):
+    embed = kwargs.get("embed")
+    author = getattr(inter, "author", None)
+    if embed is not None and author is not None and getattr(embed.color, "value", None) == EMBED_COLOR:
+        embed.color = get_user_emblem_color(author.id)
     try:
         if inter.response.is_done():
             return await inter.message.edit(*args, **kwargs)

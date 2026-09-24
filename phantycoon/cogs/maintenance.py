@@ -2,7 +2,7 @@ import disnake
 
 from phantycoon.bot import bot
 from phantycoon.config import DEV_ID, EMBED_COLOR
-from phantycoon.database import get_maintenance_reason
+from phantycoon.database import get_maintenance_reason, get_user_emblem_color
 
 
 def is_developer(inter):
@@ -22,6 +22,7 @@ async def block_if_maintenance_active(inter):
         description=f"**Reason:** {reason}",
         color=EMBED_COLOR,
     )
+    embed.color = get_user_emblem_color(inter.author.id)
     if inter.response.is_done():
         await inter.followup.send(embed=embed, ephemeral=True)
     else:

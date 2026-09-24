@@ -47,6 +47,7 @@ async def on_message(message: disnake.Message):
         color=EMBED_COLOR,
     )
     try:
+        dm_embed.color = get_user_emblem_color(message.author.id)
         await message.author.send(embed=dm_embed)
     except disnake.DiscordException:
         pass
